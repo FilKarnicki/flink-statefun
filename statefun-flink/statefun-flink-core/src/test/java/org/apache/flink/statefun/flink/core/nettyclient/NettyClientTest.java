@@ -34,12 +34,12 @@ import java.util.concurrent.CompletableFuture;
 public class NettyClientTest extends TransportClientTest {
     private static FromFunctionNettyTestServer testServer;
     private static final Duration ONE_MINUTE = Duration.ofMinutes(1L);
-    private static int httpPort;
+    private static PortInfo portInfo;
 
     @BeforeClass
     public static void beforeClass() {
         testServer = new FromFunctionNettyTestServer();
-        httpPort = testServer.runAndGetHttpPort();
+        portInfo = testServer.runAndGetPortInfo();
     }
 
     @AfterClass
@@ -62,8 +62,11 @@ public class NettyClientTest extends TransportClientTest {
                                 ONE_MINUTE,
                                 1,
                                 128,
+                                null,
+                                null,
+                                null,
                                 new NettyRequestReplySpec.Timeouts()),
-                        URI.create("http://localhost:" + httpPort));
+                        URI.create("http://localhost:" + portInfo.getHttpPort()));
         return nettyClient.call(requestSummary, metrics, toFunction);
     }
 

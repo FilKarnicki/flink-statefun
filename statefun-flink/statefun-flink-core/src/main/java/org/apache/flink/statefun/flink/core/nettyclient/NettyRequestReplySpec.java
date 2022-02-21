@@ -17,115 +17,124 @@
  */
 package org.apache.flink.statefun.flink.core.nettyclient;
 
-import static java.util.Optional.ofNullable;
+import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonSetter;
 
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
-import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonProperty;
-import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonSetter;
+
+import static java.util.Optional.ofNullable;
 
 public final class NettyRequestReplySpec {
 
-  // property names in the spec
-  public static final String CALL_TIMEOUT_PROPERTY = "call";
-  public static final String CONNECT_TIMEOUT_PROPERTY = "connect";
-  public static final String POOLED_CONNECTION_TTL_PROPERTY = "pool_ttl";
-  public static final String CONNECTION_POOL_MAX_SIZE_PROPERTY = "pool_size";
-  public static final String MAX_REQUEST_OR_RESPONSE_SIZE_IN_BYTES_PROPERTY = "payload_max_bytes";
-  public static final String TIMEOUTS_PROPERTY = "timeouts";
+    // property names in the spec
+    public static final String CALL_TIMEOUT_PROPERTY = "call";
+    public static final String CONNECT_TIMEOUT_PROPERTY = "connect";
+    public static final String POOLED_CONNECTION_TTL_PROPERTY = "pool_ttl";
+    public static final String CONNECTION_POOL_MAX_SIZE_PROPERTY = "pool_size";
+    public static final String MAX_REQUEST_OR_RESPONSE_SIZE_IN_BYTES_PROPERTY = "payload_max_bytes";
+    public static final String TRUST_CA_CERTS_PROPERTY = "trust_cacerts";
+    public static final String CLIENT_CERTS_PROPERTY = "client_certs";
+    public static final String CLIENT_KEY_PROPERTY = "client_key";
+    public static final String TIMEOUTS_PROPERTY = "timeouts";
 
-  // spec default values
-  @VisibleForTesting public static final Duration DEFAULT_CALL_TIMEOUT = Duration.ofMinutes(2);
-  @VisibleForTesting public static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(20);
+    // spec default values
+    @VisibleForTesting public static final Duration DEFAULT_CALL_TIMEOUT = Duration.ofMinutes(2);
 
-  @VisibleForTesting
-  public static final Duration DEFAULT_POOLED_CONNECTION_TTL = Duration.ofSeconds(15);
+    @VisibleForTesting
+    public static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(20);
 
-  @VisibleForTesting public static final int DEFAULT_CONNECTION_POOL_MAX_SIZE = 1024;
+    @VisibleForTesting
+    public static final Duration DEFAULT_POOLED_CONNECTION_TTL = Duration.ofSeconds(15);
 
-  @VisibleForTesting
-  public static final int DEFAULT_MAX_REQUEST_OR_RESPONSE_SIZE_IN_BYTES = 32 * 1048576;
+    @VisibleForTesting public static final int DEFAULT_CONNECTION_POOL_MAX_SIZE = 1024;
 
-  // spec values
-  public final Duration callTimeout;
-  public final Duration connectTimeout;
-  public final Duration pooledConnectionTTL;
-  public final int connectionPoolMaxSize;
-  public final int maxRequestOrResponseSizeInBytes;
+    @VisibleForTesting
+    public static final int DEFAULT_MAX_REQUEST_OR_RESPONSE_SIZE_IN_BYTES = 32 * 1048576;
 
-  public NettyRequestReplySpec(
-      @JsonProperty(CALL_TIMEOUT_PROPERTY) Duration callTimeout,
-      @JsonProperty(CONNECT_TIMEOUT_PROPERTY) Duration connectTimeout,
-      @JsonProperty(POOLED_CONNECTION_TTL_PROPERTY) Duration pooledConnectionTTL,
-      @JsonProperty(CONNECTION_POOL_MAX_SIZE_PROPERTY) Integer connectionPoolMaxSize,
-      @JsonProperty(MAX_REQUEST_OR_RESPONSE_SIZE_IN_BYTES_PROPERTY)
-          Integer maxRequestOrResponseSizeInBytes,
-      @JsonProperty(TIMEOUTS_PROPERTY) Timeouts timeouts) {
-    this.callTimeout =
-        firstPresentOrDefault(
-            ofNullable(timeouts).map(Timeouts::getCallTimeout),
-            ofNullable(callTimeout),
-            () -> DEFAULT_CALL_TIMEOUT);
+    // spec values
+    public final Duration callTimeout;
+    public final Duration connectTimeout;
+    public final Duration pooledConnectionTTL;
+    public final int connectionPoolMaxSize;
+    public final int maxRequestOrResponseSizeInBytes;
 
-    this.connectTimeout =
-        firstPresentOrDefault(
-            ofNullable(timeouts).map(Timeouts::getConnectTimeout),
-            ofNullable(connectTimeout),
-            () -> DEFAULT_CONNECT_TIMEOUT);
-    this.pooledConnectionTTL =
-        ofNullable(pooledConnectionTTL).orElseGet(() -> DEFAULT_POOLED_CONNECTION_TTL);
-    this.connectionPoolMaxSize =
-        ofNullable(connectionPoolMaxSize).orElse(DEFAULT_CONNECTION_POOL_MAX_SIZE);
-    this.maxRequestOrResponseSizeInBytes =
-        ofNullable(maxRequestOrResponseSizeInBytes)
-            .orElse(DEFAULT_MAX_REQUEST_OR_RESPONSE_SIZE_IN_BYTES);
-  }
+    public NettyRequestReplySpec(
+            @JsonProperty(CALL_TIMEOUT_PROPERTY) Duration callTimeout,
+            @JsonProperty(CONNECT_TIMEOUT_PROPERTY) Duration connectTimeout,
+            @JsonProperty(POOLED_CONNECTION_TTL_PROPERTY) Duration pooledConnectionTTL,
+            @JsonProperty(CONNECTION_POOL_MAX_SIZE_PROPERTY) Integer connectionPoolMaxSize,
+            @JsonProperty(MAX_REQUEST_OR_RESPONSE_SIZE_IN_BYTES_PROPERTY)
+                    Integer maxRequestOrResponseSizeInBytes,
+            @JsonProperty(TRUST_CA_CERTS_PROPERTY) String trustCaCerts,
+            @JsonProperty(CLIENT_CERTS_PROPERTY) String clientCerts,
+            @JsonProperty(CLIENT_KEY_PROPERTY) String clientKey,
+            @JsonProperty(TIMEOUTS_PROPERTY) Timeouts timeouts) {
+        this.callTimeout =
+                firstPresentOrDefault(
+                        ofNullable(timeouts).map(Timeouts::getCallTimeout),
+                        ofNullable(callTimeout),
+                        () -> DEFAULT_CALL_TIMEOUT);
 
-  /**
-   * This is a copy of {@linkplain
-   * org.apache.flink.statefun.flink.core.httpfn.DefaultHttpRequestReplyClientSpec.Timeouts}, to
-   * ease the migration from the {@code DefaultHttpRequestReplyClientFactory}.
-   */
-  public static final class Timeouts {
-
-    private static final Duration DEFAULT_HTTP_TIMEOUT = Duration.ofMinutes(1);
-    private static final Duration DEFAULT_HTTP_CONNECT_TIMEOUT = Duration.ofSeconds(10);
-
-    private Duration callTimeout = DEFAULT_HTTP_TIMEOUT;
-    private Duration connectTimeout = DEFAULT_HTTP_CONNECT_TIMEOUT;
-
-    @JsonSetter("call")
-    public void setCallTimeout(Duration callTimeout) {
-      this.callTimeout = requireNonZeroDuration(callTimeout);
+        this.connectTimeout =
+                firstPresentOrDefault(
+                        ofNullable(timeouts).map(Timeouts::getConnectTimeout),
+                        ofNullable(connectTimeout),
+                        () -> DEFAULT_CONNECT_TIMEOUT);
+        this.pooledConnectionTTL =
+                ofNullable(pooledConnectionTTL).orElse(DEFAULT_POOLED_CONNECTION_TTL);
+        this.connectionPoolMaxSize =
+                ofNullable(connectionPoolMaxSize).orElse(DEFAULT_CONNECTION_POOL_MAX_SIZE);
+        this.maxRequestOrResponseSizeInBytes =
+                ofNullable(maxRequestOrResponseSizeInBytes)
+                        .orElse(DEFAULT_MAX_REQUEST_OR_RESPONSE_SIZE_IN_BYTES);
     }
 
-    @JsonSetter("connect")
-    public void setConnectTimeout(Duration connectTimeout) {
-      this.connectTimeout = requireNonZeroDuration(connectTimeout);
+    /**
+     * This is a copy of {@linkplain
+     * org.apache.flink.statefun.flink.core.httpfn.DefaultHttpRequestReplyClientSpec.Timeouts}, to
+     * ease the migration from the {@code DefaultHttpRequestReplyClientFactory}.
+     */
+    public static final class Timeouts {
+
+        private static final Duration DEFAULT_HTTP_TIMEOUT = Duration.ofMinutes(1);
+        private static final Duration DEFAULT_HTTP_CONNECT_TIMEOUT = Duration.ofSeconds(10);
+
+        private Duration callTimeout = DEFAULT_HTTP_TIMEOUT;
+        private Duration connectTimeout = DEFAULT_HTTP_CONNECT_TIMEOUT;
+
+        @JsonSetter("call")
+        public void setCallTimeout(Duration callTimeout) {
+            this.callTimeout = requireNonZeroDuration(callTimeout);
+        }
+
+        @JsonSetter("connect")
+        public void setConnectTimeout(Duration connectTimeout) {
+            this.connectTimeout = requireNonZeroDuration(connectTimeout);
+        }
+
+        public Duration getCallTimeout() {
+            return callTimeout;
+        }
+
+        public Duration getConnectTimeout() {
+            return connectTimeout;
+        }
+
+        private static Duration requireNonZeroDuration(Duration duration) {
+            Objects.requireNonNull(duration);
+            if (duration.equals(Duration.ZERO)) {
+                throw new IllegalArgumentException("Timeout durations must be larger than 0.");
+            }
+            return duration;
+        }
     }
 
-    public Duration getCallTimeout() {
-      return callTimeout;
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    private static <T> T firstPresentOrDefault(Optional<T> a, Optional<T> b, Supplier<T> orElse) {
+        return a.orElseGet(() -> b.orElseGet(orElse));
     }
-
-    public Duration getConnectTimeout() {
-      return connectTimeout;
-    }
-
-    private static Duration requireNonZeroDuration(Duration duration) {
-      Objects.requireNonNull(duration);
-      if (duration.equals(Duration.ZERO)) {
-        throw new IllegalArgumentException("Timeout durations must be larger than 0.");
-      }
-      return duration;
-    }
-  }
-
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  private static <T> T firstPresentOrDefault(Optional<T> a, Optional<T> b, Supplier<T> orElse) {
-    return a.orElseGet(() -> b.orElseGet(orElse));
-  }
 }

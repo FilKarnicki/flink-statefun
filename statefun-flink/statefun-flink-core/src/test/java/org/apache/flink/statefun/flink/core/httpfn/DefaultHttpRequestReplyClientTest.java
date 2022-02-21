@@ -19,6 +19,7 @@
 package org.apache.flink.statefun.flink.core.httpfn;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.flink.statefun.flink.common.json.StateFunObjectMapper;
 import org.apache.flink.statefun.flink.core.metrics.RemoteInvocationMetrics;
 import org.apache.flink.statefun.flink.core.reqreply.RequestReplyClient;
 import org.apache.flink.statefun.flink.core.reqreply.ToFunctionRequestSummary;
@@ -32,14 +33,14 @@ import java.util.concurrent.CompletableFuture;
 
 /** This class runs @Test scenarios defined in the parent - {@link TransportClientTest} */
 public class DefaultHttpRequestReplyClientTest extends TransportClientTest {
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectMapper objectMapper = StateFunObjectMapper.create();
     private static FromFunctionNettyTestServer testServer;
-    private static int httpPort;
+    private static PortInfo portInfo;
 
     @BeforeClass
     public static void beforeClass() {
         testServer = new FromFunctionNettyTestServer();
-        httpPort = testServer.runAndGetHttpPort();
+        portInfo = testServer.runAndGetPortInfo();
     }
 
     @AfterClass
@@ -55,7 +56,7 @@ public class DefaultHttpRequestReplyClientTest extends TransportClientTest {
         RequestReplyClient defaultHttpRequestReplyClient =
                 DefaultHttpRequestReplyClientFactory.INSTANCE.createTransportClient(
                         objectMapper.createObjectNode(),
-                        URI.create("http://localhost:" + httpPort));
+                        URI.create("http://localhost:" + portInfo.getHttpPort()));
 
         return defaultHttpRequestReplyClient.call(requestSummary, metrics, toFunction);
     }
@@ -73,7 +74,18 @@ public class DefaultHttpRequestReplyClientTest extends TransportClientTest {
             ToFunctionRequestSummary requestSummary,
             RemoteInvocationMetrics metrics,
             ToFunction toFunction) {
-        return null;
+
+        final DefaultHttpRequestReplyClientSpec spec = new DefaultHttpRequestReplyClientSpec();
+        spec.setTrustCaCerts("classpath:" + A_CA_CERTS);
+        spec.setClientCerts("classpath:" + A_SIGNED_CLIENT_CERT_LOCATION);
+        spec.setClientKey("classpath:" + A_SIGNED_CLIENT_KEY_LOCATION);
+
+        RequestReplyClient defaultHttpRequestReplyClient =
+                DefaultHttpRequestReplyClientFactory.INSTANCE.createTransportClient(
+                        spec.toJson(objectMapper),
+                        URI.create("https://localhost:" + portInfo.getHttpsPort()));
+
+        return defaultHttpRequestReplyClient.call(requestSummary, metrics, toFunction);
     }
 
     @Override
