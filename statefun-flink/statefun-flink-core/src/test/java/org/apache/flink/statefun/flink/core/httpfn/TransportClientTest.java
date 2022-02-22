@@ -18,7 +18,6 @@
 
 package org.apache.flink.statefun.flink.core.httpfn;
 
-import nl.altindag.ssl.SSLFactory;
 import nl.altindag.ssl.util.PemUtils;
 import org.apache.flink.shaded.netty4.io.netty.bootstrap.ServerBootstrap;
 import org.apache.flink.shaded.netty4.io.netty.buffer.ByteBuf;
@@ -27,7 +26,10 @@ import org.apache.flink.shaded.netty4.io.netty.channel.*;
 import org.apache.flink.shaded.netty4.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.flink.shaded.netty4.io.netty.channel.socket.nio.NioServerSocketChannel;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.*;
-import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslHandler;
+import org.apache.flink.shaded.netty4.io.netty.handler.ssl.ClientAuth;
+import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslContext;
+import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslContextBuilder;
+import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslProvider;
 import org.apache.flink.statefun.flink.common.ResourceLocator;
 import org.apache.flink.statefun.flink.core.metrics.RemoteInvocationMetrics;
 import org.apache.flink.statefun.flink.core.reqreply.ToFunctionRequestSummary;
@@ -53,10 +55,13 @@ public abstract class TransportClientTest {
     protected static final String A_CA_CERTS_LOCATION = "certs/a_caCerts.pem";
     protected static final String B_CA_CERTS_LOCATION = "certs/b_caCerts.pem";
     protected static final String A_SIGNED_CLIENT_CERT_LOCATION = "certs/a_client.crt";
+    protected static final String A_SIGNED_SERVER_CERT_LOCATION = "certs/a_server.crt";
     protected static final String B_SIGNED_CLIENT_CERT_LOCATION = "certs/b_client.crt";
     protected static final String A_SIGNED_CLIENT_KEY_LOCATION = "certs/a_client.key";
+    protected static final String A_SIGNED_SERVER_KEY_LOCATION = "certs/a_server.key";
     protected static final String B_SIGNED_CLIENT_KEY_LOCATION = "certs/b_client.key";
     private static final String A_SIGNED_CLIENT_KEY_PASSWORD = "test";
+    private static final String A_SIGNED_SERVER_KEY_PASSWORD = A_SIGNED_CLIENT_KEY_PASSWORD;
     private static final String B_SIGNED_CLIENT_KEY_PASSWORD = A_SIGNED_CLIENT_KEY_PASSWORD;
 
     @Test
@@ -156,6 +161,8 @@ public abstract class TransportClientTest {
     public static class FromFunctionNettyTestServer {
         private EventLoopGroup eventLoopGroup;
         private EventLoopGroup workerGroup;
+        private EventLoopGroup eventLoopGroupHttps;
+        private EventLoopGroup workerGroupHttps;
 
         public static void main(String[] args) {
             PortInfo portInfo = new FromFunctionNettyTestServer().runAndGetPortInfo();
@@ -175,6 +182,9 @@ public abstract class TransportClientTest {
             eventLoopGroup = new NioEventLoopGroup();
             workerGroup = new NioEventLoopGroup();
 
+            eventLoopGroupHttps = new NioEventLoopGroup();
+            workerGroupHttps = new NioEventLoopGroup();
+
             try {
                 ServerBootstrap httpBootstrap =
                         new ServerBootstrap()
@@ -186,14 +196,14 @@ public abstract class TransportClientTest {
 
                 ServerBootstrap httpsBootstrap =
                         new ServerBootstrap()
-                                .group(eventLoopGroup, workerGroup)
+                                .group(eventLoopGroupHttps, workerGroupHttps)
                                 .channel(NioServerSocketChannel.class)
                                 .childHandler(
                                         fromFunctionOkHandler(
                                                 "classpath:" + A_CA_CERTS_LOCATION,
-                                                "classpath:" + A_SIGNED_CLIENT_CERT_LOCATION,
-                                                "classpath:" + A_SIGNED_CLIENT_KEY_LOCATION,
-                                                A_SIGNED_CLIENT_KEY_PASSWORD))
+                                                "classpath:" + A_SIGNED_SERVER_CERT_LOCATION,
+                                                "classpath:" + A_SIGNED_SERVER_KEY_LOCATION,
+                                                A_SIGNED_SERVER_KEY_PASSWORD))
                                 .option(ChannelOption.SO_BACKLOG, 128)
                                 .childOption(ChannelOption.SO_KEEPALIVE, true);
 
@@ -212,6 +222,9 @@ public abstract class TransportClientTest {
         public void close() throws InterruptedException {
             eventLoopGroup.shutdownGracefully().sync();
             workerGroup.shutdownGracefully().sync();
+
+            eventLoopGroupHttps.shutdownGracefully().sync();
+            workerGroupHttps.shutdownGracefully().sync();
         }
 
         private ChannelInitializer<Channel> fromFunctionOkHandler() {
@@ -228,8 +241,8 @@ public abstract class TransportClientTest {
 
         private ChannelInitializer<Channel> fromFunctionOkHandler(
                 String trustedCaCertsLocation,
-                String clientCertLocation,
-                String clientKeyLocation,
+                String serverCertLocation,
+                String serverKeyLocation,
                 String keyPassword) {
             return new ChannelInitializer<Channel>() {
                 @Override
@@ -237,22 +250,24 @@ public abstract class TransportClientTest {
                     ChannelPipeline pipeline = channel.pipeline();
                     X509ExtendedKeyManager keyManager =
                             PemUtils.loadIdentityMaterial(
-                                    ResourceLocator.findNamedResource(clientCertLocation)
+                                    ResourceLocator.findNamedResource(serverCertLocation)
                                             .openStream(),
-                                    ResourceLocator.findNamedResource(clientKeyLocation)
+                                    ResourceLocator.findNamedResource(serverKeyLocation)
                                             .openStream(),
                                     keyPassword.toCharArray());
                     X509ExtendedTrustManager trustManager =
                             PemUtils.loadTrustMaterial(
                                     ResourceLocator.findNamedResource(trustedCaCertsLocation)
                                             .openStream());
-                    SSLFactory sslFactory =
-                            SSLFactory.builder()
-                                    .withIdentityMaterial(keyManager)
-                                    .withTrustMaterial(trustManager)
-                                    .build();
 
-                    pipeline.addLast("tls", new SslHandler(sslFactory.getSSLEngine()));
+                    SslContext sslCtx =
+                            SslContextBuilder.forServer(keyManager)
+                                    .trustManager(trustManager)
+                                    .sslProvider(SslProvider.JDK)
+                                    .clientAuth(ClientAuth.REQUIRE)
+                                    .build();
+                    pipeline.addLast(sslCtx.newHandler(channel.alloc()));
+
                     pipeline.addLast(new HttpServerCodec());
                     pipeline.addLast(new HttpObjectAggregator(Integer.MAX_VALUE));
                     pipeline.addLast(stubFromFunctionHandler());
