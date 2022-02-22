@@ -33,6 +33,7 @@ under the License.
         <okhttp.version>3.14.6</okhttp.version>
         <additional-sources.dir>target/additional-sources</additional-sources.dir>
         <flink-shaded-netty.version>4.1.65.Final-14.0</flink-shaded-netty.version>
+        <sslcontext-kickstart.version>7.2.1</sslcontext-kickstart.version>
     </properties>
 
     <dependencies>
@@ -91,7 +92,11 @@ under the License.
             <artifactId>junixsocket-core</artifactId>
             <version>${unixsocket.version}</version>
         </dependency>
-
+        <dependency>
+            <groupId>io.github.hakky54</groupId>
+            <artifactId>sslcontext-kickstart-for-pem</artifactId>
+            <version>${sslcontext-kickstart.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-shaded-netty</artifactId>

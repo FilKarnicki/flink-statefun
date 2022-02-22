@@ -65,6 +65,7 @@ public class NettyClientTest extends TransportClientTest {
                                 null,
                                 null,
                                 null,
+                                null,
                                 new NettyRequestReplySpec.Timeouts()),
                         URI.create("http://localhost:" + portInfo.getHttpPort()));
         return nettyClient.call(requestSummary, metrics, toFunction);

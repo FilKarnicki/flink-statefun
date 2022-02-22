@@ -76,7 +76,7 @@ public class DefaultHttpRequestReplyClientTest extends TransportClientTest {
             ToFunction toFunction) {
 
         final DefaultHttpRequestReplyClientSpec spec = new DefaultHttpRequestReplyClientSpec();
-        spec.setTrustCaCerts("classpath:" + A_CA_CERTS);
+        spec.setTrustCaCerts("classpath:" + A_CA_CERTS_LOCATION);
         spec.setClientCerts("classpath:" + A_SIGNED_CLIENT_CERT_LOCATION);
         spec.setClientKey("classpath:" + A_SIGNED_CLIENT_KEY_LOCATION);
 

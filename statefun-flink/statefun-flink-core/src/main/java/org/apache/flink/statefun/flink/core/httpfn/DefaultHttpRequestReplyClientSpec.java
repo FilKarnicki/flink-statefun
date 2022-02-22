@@ -44,6 +44,9 @@ public final class DefaultHttpRequestReplyClientSpec {
     @JsonProperty("client_key")
     private String clientKey;
 
+    @JsonProperty("client_key_password")
+    private String clientKeyPassword;
+
     @JsonSetter("timeouts")
     public void setTimeouts(Timeouts timeouts) {
         validateTimeouts(
@@ -82,6 +85,14 @@ public final class DefaultHttpRequestReplyClientSpec {
         this.clientKey = clientKey;
     }
 
+    public String getClientKeyPassword() {
+        return clientKeyPassword;
+    }
+
+    public void setClientKeyPassword(String clientKeyPassword) {
+        this.clientKeyPassword = clientKeyPassword;
+    }
+
     public Optional<String> getTrustCaCertsOptional() {
         return Optional.ofNullable(trustCaCerts);
     }
@@ -92,6 +103,10 @@ public final class DefaultHttpRequestReplyClientSpec {
 
     public Optional<String> getClientKeyOptional() {
         return Optional.ofNullable(clientKey);
+    }
+
+    public Optional<String> getClientKeyPasswordOptional() {
+        return Optional.ofNullable(clientKeyPassword);
     }
 
     public ObjectNode toJson(ObjectMapper objectMapper) {

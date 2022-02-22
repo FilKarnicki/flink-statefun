@@ -39,6 +39,7 @@ public final class NettyRequestReplySpec {
     public static final String TRUST_CA_CERTS_PROPERTY = "trust_cacerts";
     public static final String CLIENT_CERTS_PROPERTY = "client_certs";
     public static final String CLIENT_KEY_PROPERTY = "client_key";
+    public static final String CLIENT_KEY_PASSWORD_PROPERTY = "client_key_password";
     public static final String TIMEOUTS_PROPERTY = "timeouts";
 
     // spec default values
@@ -61,6 +62,10 @@ public final class NettyRequestReplySpec {
     public final Duration pooledConnectionTTL;
     public final int connectionPoolMaxSize;
     public final int maxRequestOrResponseSizeInBytes;
+    private final String trustedCaCerts;
+    private final String clientCerts;
+    private final String clientKey;
+    private final String clientKeyPassword;
 
     public NettyRequestReplySpec(
             @JsonProperty(CALL_TIMEOUT_PROPERTY) Duration callTimeout,
@@ -69,10 +74,15 @@ public final class NettyRequestReplySpec {
             @JsonProperty(CONNECTION_POOL_MAX_SIZE_PROPERTY) Integer connectionPoolMaxSize,
             @JsonProperty(MAX_REQUEST_OR_RESPONSE_SIZE_IN_BYTES_PROPERTY)
                     Integer maxRequestOrResponseSizeInBytes,
-            @JsonProperty(TRUST_CA_CERTS_PROPERTY) String trustCaCerts,
+            @JsonProperty(TRUST_CA_CERTS_PROPERTY) String trustedCaCerts,
             @JsonProperty(CLIENT_CERTS_PROPERTY) String clientCerts,
             @JsonProperty(CLIENT_KEY_PROPERTY) String clientKey,
+            @JsonProperty(CLIENT_KEY_PASSWORD_PROPERTY) String clientKeyPassword,
             @JsonProperty(TIMEOUTS_PROPERTY) Timeouts timeouts) {
+        this.trustedCaCerts = trustedCaCerts;
+        this.clientCerts = clientCerts;
+        this.clientKey = clientKey;
+        this.clientKeyPassword = clientKeyPassword;
         this.callTimeout =
                 firstPresentOrDefault(
                         ofNullable(timeouts).map(Timeouts::getCallTimeout),
@@ -91,6 +101,22 @@ public final class NettyRequestReplySpec {
         this.maxRequestOrResponseSizeInBytes =
                 ofNullable(maxRequestOrResponseSizeInBytes)
                         .orElse(DEFAULT_MAX_REQUEST_OR_RESPONSE_SIZE_IN_BYTES);
+    }
+
+    public String getTrustedCaCerts() {
+        return trustedCaCerts;
+    }
+
+    public String getClientCerts() {
+        return clientCerts;
+    }
+
+    public String getClientKey() {
+        return clientKey;
+    }
+
+    public String getClientKeyPassword() {
+        return clientKeyPassword;
     }
 
     /**
