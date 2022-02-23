@@ -32,11 +32,18 @@ import org.apache.flink.statefun.flink.core.reqreply.RequestReplyClient;
 import org.apache.flink.statefun.flink.core.reqreply.RequestReplyClientFactory;
 
 import javax.annotation.Nullable;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509ExtendedKeyManager;
 import javax.net.ssl.X509ExtendedTrustManager;
+import javax.net.ssl.X509TrustManager;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.Optional;
 
 import static org.apache.flink.statefun.flink.core.httpfn.OkHttpUnixSocketBridge.configureUnixDomainSocket;
@@ -90,69 +97,110 @@ public final class DefaultHttpRequestReplyClientFactory implements RequestReplyC
             clientBuilder.readTimeout(transportClientSpec.getTimeouts().getReadTimeout());
             clientBuilder.writeTimeout(transportClientSpec.getTimeouts().getWriteTimeout());
 
-            Optional<SSLFactory.Builder> maybeTrustedCaCertsEnabledSslFactoryBuilder =
+            Optional<X509ExtendedTrustManager> maybeTrustManager =
                     transportClientSpec
                             .getTrustCaCertsOptional()
                             .map(
-                                    trustedCaCertsLocation -> {
-                                        X509ExtendedTrustManager trustManager =
-                                                PemUtils.loadTrustMaterial(
-                                                        openStreamOrThrow(
-                                                                ResourceLocator.findNamedResource(
-                                                                        trustedCaCertsLocation)));
-                                        return SSLFactory.builder().withTrustMaterial(trustManager);
-                                    });
-            Optional<SSLFactory.Builder> maybeMutualTlsEnabledSslFactoryBuilder =
-                    maybeTrustedCaCertsEnabledSslFactoryBuilder.flatMap(
-                            sslFactoryBuilder ->
-                                    transportClientSpec
-                                            .getClientCertsOptional()
-                                            .map(
-                                                    clientCertsLocation -> {
-                                                        Optional<String> maybeClientKeyLocation =
-                                                                transportClientSpec
-                                                                        .getClientKeyOptional();
-                                                        if (!maybeClientKeyLocation.isPresent()) {
-                                                            throw new IllegalStateException(
-                                                                    "if mutual TLS authentication is to be used, both the 'client_certs' and 'client_key' have to be provided (and possibly 'client_key_password')");
-                                                        }
-                                                        InputStream clientCertInputStream =
-                                                                openStreamOrThrow(
-                                                                        ResourceLocator
-                                                                                .findNamedResource(
-                                                                                        clientCertsLocation));
-                                                        InputStream clientKeyInputStream =
-                                                                openStreamOrThrow(
-                                                                        ResourceLocator
-                                                                                .findNamedResource(
-                                                                                        maybeClientKeyLocation
-                                                                                                .get()));
-                                                        Optional<String> maybeClientKeyPassword =
-                                                                transportClientSpec
-                                                                        .getClientKeyPasswordOptional();
-                                                        if (maybeClientKeyPassword.isPresent()) {
-                                                            return PemUtils.loadIdentityMaterial(
-                                                                    clientCertInputStream,
-                                                                    clientKeyInputStream,
-                                                                    maybeClientKeyPassword
-                                                                            .get()
-                                                                            .toCharArray());
-                                                        } else {
-                                                            return PemUtils.loadIdentityMaterial(
-                                                                    clientCertInputStream,
-                                                                    clientKeyInputStream);
-                                                        }
-                                                    })
-                                            .map(sslFactoryBuilder::withIdentityMaterial));
+                                    trustedCaCertsLocation ->
+                                            PemUtils.loadTrustMaterial(
+                                                    openStreamOrThrow(
+                                                            ResourceLocator.findNamedResource(
+                                                                    trustedCaCertsLocation))));
 
-            if (maybeMutualTlsEnabledSslFactoryBuilder.isPresent()) {
-                SSLFactory sslFactory = maybeMutualTlsEnabledSslFactoryBuilder.get().build();
-                clientBuilder.sslSocketFactory(
-                        sslFactory.getSslSocketFactory(), sslFactory.getTrustManager().get());
-            } else if (maybeTrustedCaCertsEnabledSslFactoryBuilder.isPresent()) {
-                SSLFactory sslFactory = maybeTrustedCaCertsEnabledSslFactoryBuilder.get().build();
-                clientBuilder.sslSocketFactory(
-                        sslFactory.getSslSocketFactory(), sslFactory.getTrustManager().get());
+            if (transportClientSpec.getClientCertsOptional().isPresent()
+                    && !transportClientSpec.getClientKeyOptional().isPresent()) {
+                throw new IllegalStateException(
+                        "You provided a client cert, but not a client key. Cannot continue.");
+            }
+            if (transportClientSpec.getClientKeyOptional().isPresent()
+                    && !transportClientSpec.getClientCertsOptional().isPresent()) {
+                throw new IllegalStateException(
+                        "You provided a client key, but not a client cert. Cannot continue.");
+            }
+
+            Optional<X509ExtendedKeyManager> maybeKeyManager =
+                    transportClientSpec
+                            .getClientCertsOptional()
+                            .flatMap(
+                                    clientCertLocation ->
+                                            transportClientSpec
+                                                    .getClientKeyOptional()
+                                                    .map(
+                                                            clientKeyLocation -> {
+                                                                InputStream clientCertInputStream =
+                                                                        openStreamOrThrow(
+                                                                                ResourceLocator
+                                                                                        .findNamedResource(
+                                                                                                clientCertLocation));
+                                                                InputStream clientKeyInputStream =
+                                                                        openStreamOrThrow(
+                                                                                ResourceLocator
+                                                                                        .findNamedResource(
+                                                                                                clientKeyLocation));
+
+                                                                Optional<String>
+                                                                        maybeClientKeyPassword =
+                                                                                transportClientSpec
+                                                                                        .getClientKeyPasswordOptional();
+                                                                if (maybeClientKeyPassword
+                                                                        .isPresent()) {
+                                                                    return PemUtils
+                                                                            .loadIdentityMaterial(
+                                                                                    clientCertInputStream,
+                                                                                    clientKeyInputStream,
+                                                                                    maybeClientKeyPassword
+                                                                                            .get()
+                                                                                            .toCharArray());
+                                                                } else {
+                                                                    return PemUtils
+                                                                            .loadIdentityMaterial(
+                                                                                    clientCertInputStream,
+                                                                                    clientKeyInputStream);
+                                                                }
+                                                            }));
+
+            SSLFactory.Builder sslFactoryBuilder = SSLFactory.builder();
+
+            if (maybeKeyManager.isPresent()) {
+                sslFactoryBuilder.withIdentityMaterial(maybeKeyManager.get());
+                if (maybeTrustManager.isPresent()) {
+                    sslFactoryBuilder.withTrustMaterial(maybeTrustManager.get());
+                    SSLFactory sslFactory = sslFactoryBuilder.build();
+                    if (sslFactory.getTrustManager().isPresent()) {
+                        clientBuilder.sslSocketFactory(
+                                sslFactory.getSslSocketFactory(),
+                                sslFactory.getTrustManager().get());
+                    } else {
+                        throw new IllegalStateException(
+                                "Could not get a trust manager from the ssl factory");
+                    }
+                } else {
+                    TrustManagerFactory trustManagerFactory = null;
+                    try {
+                        trustManagerFactory =
+                                TrustManagerFactory.getInstance(
+                                        TrustManagerFactory.getDefaultAlgorithm());
+                        trustManagerFactory.init((KeyStore) null);
+                        Optional<X509TrustManager> tm =
+                                Arrays.stream(trustManagerFactory.getTrustManagers())
+                                        .filter(t -> t instanceof X509TrustManager)
+                                        .findFirst()
+                                        .map(t -> (X509TrustManager) t);
+
+                        SSLFactory sslFactory = sslFactoryBuilder.build();
+                        clientBuilder.sslSocketFactory(sslFactory.getSslSocketFactory(), tm.get());
+
+                    } catch (NoSuchAlgorithmException | KeyStoreException e) {
+                        e.printStackTrace();
+                    }
+                }
+            } else if (maybeTrustManager.isPresent()) {
+                sslFactoryBuilder.withTrustMaterial(maybeTrustManager.get());
+                SSLFactory sslFactory = sslFactoryBuilder.build();
+                if (sslFactory.getTrustManager().isPresent()) {
+                    clientBuilder.sslSocketFactory(
+                            sslFactory.getSslSocketFactory(), sslFactory.getTrustManager().get());
+                }
             }
 
             HttpUrl url;

@@ -52,18 +52,23 @@ final class DefaultHttpRequestReplyClient implements RequestReplyClient {
             ToFunctionRequestSummary requestSummary,
             RemoteInvocationMetrics metrics,
             ToFunction toFunction) {
+        Call newCall = callOnce(toFunction);
+
+        RetryingCallback callback =
+                new RetryingCallback(requestSummary, metrics, newCall.timeout(), isShutdown);
+        callback.attachToCall(newCall);
+
+        return callback.future().thenApply(DefaultHttpRequestReplyClient::parseResponse);
+    }
+
+    public Call callOnce(ToFunction toFunction) {
         Request request =
                 new Request.Builder()
                         .url(url)
                         .post(RequestBody.create(MEDIA_TYPE_BINARY, toFunction.toByteArray()))
                         .build();
 
-        Call newCall = client.newCall(request);
-        RetryingCallback callback =
-                new RetryingCallback(requestSummary, metrics, newCall.timeout(), isShutdown);
-        callback.attachToCall(newCall);
-
-        return callback.future().thenApply(DefaultHttpRequestReplyClient::parseResponse);
+        return client.newCall(request);
     }
 
     private static FromFunction parseResponse(Response response) {

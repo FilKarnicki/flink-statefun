@@ -19,16 +19,11 @@
 package org.apache.flink.statefun.flink.core.nettyclient;
 
 import org.apache.flink.statefun.flink.core.httpfn.TransportClientTest;
-import org.apache.flink.statefun.flink.core.metrics.RemoteInvocationMetrics;
-import org.apache.flink.statefun.flink.core.reqreply.ToFunctionRequestSummary;
-import org.apache.flink.statefun.sdk.reqreply.generated.FromFunction;
-import org.apache.flink.statefun.sdk.reqreply.generated.ToFunction;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
 import java.net.URI;
 import java.time.Duration;
-import java.util.concurrent.CompletableFuture;
 
 /** This class runs @Test scenarios defined in the parent - {@link TransportClientTest} */
 public class NettyClientTest extends TransportClientTest {
@@ -48,10 +43,7 @@ public class NettyClientTest extends TransportClientTest {
     }
 
     @Override
-    public CompletableFuture<FromFunction> call(
-            ToFunctionRequestSummary requestSummary,
-            RemoteInvocationMetrics metrics,
-            ToFunction toFunction) {
+    public boolean call() {
 
         NettyClient nettyClient =
                 NettyClient.from(
@@ -68,38 +60,55 @@ public class NettyClientTest extends TransportClientTest {
                                 null,
                                 new NettyRequestReplySpec.Timeouts()),
                         URI.create("http://localhost:" + portInfo.getHttpPort()));
-        return nettyClient.call(requestSummary, metrics, toFunction);
+        nettyClient.call(
+                getStubRequestSummary(),
+                getFakeMetrics(),
+                getEmptyToFunction()); // .get(5, TimeUnit.SECONDS);
+        return false;
     }
 
     @Override
-    public CompletableFuture<FromFunction> callWithTlsFromPath(
-            ToFunctionRequestSummary requestSummary,
-            RemoteInvocationMetrics metrics,
-            ToFunction toFunction) {
-        return null;
+    public boolean callHttpsWithoutAnyTlsSetup() {
+        return false;
     }
 
     @Override
-    public CompletableFuture<FromFunction> callWithTlsFromClasspath(
-            ToFunctionRequestSummary requestSummary,
-            RemoteInvocationMetrics metrics,
-            ToFunction toFunction) {
-        return null;
+    protected boolean callHttpsWithOnlyClientSetup() {
+        return false;
     }
 
     @Override
-    public CompletableFuture<FromFunction> callWithUntrustedTlsClient(
-            ToFunctionRequestSummary requestSummary,
-            RemoteInvocationMetrics metrics,
-            ToFunction toFunction) {
-        return null;
+    public boolean callWithTlsFromPath() {
+        return false;
     }
 
     @Override
-    public CompletableFuture<FromFunction> callWithUntrustedTlsService(
-            ToFunctionRequestSummary requestSummary,
-            RemoteInvocationMetrics metrics,
-            ToFunction toFunction) {
-        return null;
+    public boolean callWithTlsFromClasspath() {
+        return false;
+    }
+
+    @Override
+    public boolean callWithTlsFromClasspathWithoutKeyPassword() {
+        return false;
+    }
+
+    @Override
+    public boolean callWithUntrustedTlsClient() {
+        return false;
+    }
+
+    @Override
+    public boolean callUntrustedServerWithTlsClient() {
+        return false;
+    }
+
+    @Override
+    public boolean callWithNoCertGivenButRequired() {
+        return false;
+    }
+
+    @Override
+    public boolean callWithJustServerSideTls() {
+        return false;
     }
 }

@@ -18,18 +18,17 @@
 
 package org.apache.flink.statefun.flink.core.httpfn;
 
+import okhttp3.Call;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.flink.statefun.flink.common.json.StateFunObjectMapper;
-import org.apache.flink.statefun.flink.core.metrics.RemoteInvocationMetrics;
-import org.apache.flink.statefun.flink.core.reqreply.RequestReplyClient;
-import org.apache.flink.statefun.flink.core.reqreply.ToFunctionRequestSummary;
-import org.apache.flink.statefun.sdk.reqreply.generated.FromFunction;
-import org.apache.flink.statefun.sdk.reqreply.generated.ToFunction;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
+import java.io.IOException;
 import java.net.URI;
-import java.util.concurrent.CompletableFuture;
+import java.net.URL;
+
+import static org.junit.Assert.assertNotNull;
 
 /** This class runs @Test scenarios defined in the parent - {@link TransportClientTest} */
 public class DefaultHttpRequestReplyClientTest extends TransportClientTest {
@@ -49,58 +48,137 @@ public class DefaultHttpRequestReplyClientTest extends TransportClientTest {
     }
 
     @Override
-    public CompletableFuture<FromFunction> call(
-            ToFunctionRequestSummary requestSummary,
-            RemoteInvocationMetrics metrics,
-            ToFunction toFunction) {
-        RequestReplyClient defaultHttpRequestReplyClient =
-                DefaultHttpRequestReplyClientFactory.INSTANCE.createTransportClient(
-                        objectMapper.createObjectNode(),
-                        URI.create("http://localhost:" + portInfo.getHttpPort()));
-
-        return defaultHttpRequestReplyClient.call(requestSummary, metrics, toFunction);
+    public boolean call() throws IOException {
+        final DefaultHttpRequestReplyClientSpec emptySpec = new DefaultHttpRequestReplyClientSpec();
+        return callWithStubs(buildClient(emptySpec, "http", portInfo.getHttpPort()))
+                .execute()
+                .isSuccessful();
     }
 
     @Override
-    public CompletableFuture<FromFunction> callWithTlsFromPath(
-            ToFunctionRequestSummary requestSummary,
-            RemoteInvocationMetrics metrics,
-            ToFunction toFunction) {
-        return null;
+    public boolean callHttpsWithoutAnyTlsSetup() throws IOException {
+        final DefaultHttpRequestReplyClientSpec emptySpec = new DefaultHttpRequestReplyClientSpec();
+        return callWithStubs(buildClient(emptySpec, "https", portInfo.getHttpsServerTlsOnlyPort()))
+                .execute()
+                .isSuccessful();
     }
 
     @Override
-    public CompletableFuture<FromFunction> callWithTlsFromClasspath(
-            ToFunctionRequestSummary requestSummary,
-            RemoteInvocationMetrics metrics,
-            ToFunction toFunction) {
+    protected boolean callHttpsWithOnlyClientSetup() throws IOException {
+        final DefaultHttpRequestReplyClientSpec spec = new DefaultHttpRequestReplyClientSpec();
+        // no truststore settings here
+        spec.setClientCerts("classpath:" + A_SIGNED_CLIENT_CERT_LOCATION);
+        spec.setClientKey("classpath:" + A_SIGNED_CLIENT_KEY_LOCATION);
+        spec.setClientKeyPassword(A_SIGNED_CLIENT_KEY_PASSWORD);
 
+        return callWithStubs(buildClient(spec, "https", portInfo.getHttpsMutualTlsRequiredPort()))
+                .execute()
+                .isSuccessful();
+    }
+
+    @Override
+    public boolean callWithTlsFromPath() throws IOException {
+        URL caCertsUrl = getClass().getClassLoader().getResource(A_CA_CERTS_LOCATION);
+        URL clientCertUrl = getClass().getClassLoader().getResource(A_SIGNED_CLIENT_CERT_LOCATION);
+        URL clientKeyUrl = getClass().getClassLoader().getResource(A_SIGNED_CLIENT_KEY_LOCATION);
+        assertNotNull(caCertsUrl);
+        assertNotNull(clientCertUrl);
+        assertNotNull(clientKeyUrl);
+        final DefaultHttpRequestReplyClientSpec spec = new DefaultHttpRequestReplyClientSpec();
+        spec.setTrustCaCerts(caCertsUrl.getPath());
+        spec.setClientCerts(clientCertUrl.getPath());
+        spec.setClientKey(clientKeyUrl.getPath());
+        spec.setClientKeyPassword(A_SIGNED_CLIENT_KEY_PASSWORD);
+
+        return callWithStubs(buildClient(spec, "https", portInfo.getHttpsMutualTlsRequiredPort()))
+                .execute()
+                .isSuccessful();
+    }
+
+    @Override
+    public boolean callWithTlsFromClasspath() throws IOException {
         final DefaultHttpRequestReplyClientSpec spec = new DefaultHttpRequestReplyClientSpec();
         spec.setTrustCaCerts("classpath:" + A_CA_CERTS_LOCATION);
         spec.setClientCerts("classpath:" + A_SIGNED_CLIENT_CERT_LOCATION);
         spec.setClientKey("classpath:" + A_SIGNED_CLIENT_KEY_LOCATION);
+        spec.setClientKeyPassword(A_SIGNED_CLIENT_KEY_PASSWORD);
 
-        RequestReplyClient defaultHttpRequestReplyClient =
+        return callWithStubs(buildClient(spec, "https", portInfo.getHttpsMutualTlsRequiredPort()))
+                .execute()
+                .isSuccessful();
+    }
+
+    @Override
+    public boolean callWithTlsFromClasspathWithoutKeyPassword() throws IOException {
+        final DefaultHttpRequestReplyClientSpec spec = new DefaultHttpRequestReplyClientSpec();
+        spec.setTrustCaCerts("classpath:" + A_CA_CERTS_LOCATION);
+        spec.setClientCerts("classpath:" + C_SIGNED_CLIENT_CERT_LOCATION);
+        spec.setClientKey("classpath:" + C_SIGNED_CLIENT_KEY_LOCATION);
+        // no key password required here since C_SIGNED_CLIENT_KEY doesn't need one
+
+        return callWithStubs(buildClient(spec, "https", portInfo.getHttpsMutualTlsRequiredPort()))
+                .execute()
+                .isSuccessful();
+    }
+
+    @Override
+    public boolean callWithUntrustedTlsClient() throws IOException {
+        final DefaultHttpRequestReplyClientSpec spec = new DefaultHttpRequestReplyClientSpec();
+        spec.setTrustCaCerts("classpath:" + A_CA_CERTS_LOCATION); // the client trusts the server
+        spec.setClientCerts(
+                "classpath:" + B_SIGNED_CLIENT_CERT_LOCATION); // the server won't trust the client
+        spec.setClientKey("classpath:" + B_SIGNED_CLIENT_KEY_LOCATION);
+        spec.setClientKeyPassword(B_SIGNED_CLIENT_KEY_PASSWORD);
+
+        return callWithStubs(buildClient(spec, "https", portInfo.getHttpsMutualTlsRequiredPort()))
+                .execute()
+                .isSuccessful();
+    }
+
+    @Override
+    public boolean callUntrustedServerWithTlsClient() throws IOException {
+        final DefaultHttpRequestReplyClientSpec spec = new DefaultHttpRequestReplyClientSpec();
+        spec.setTrustCaCerts(
+                "classpath:" + B_CA_CERTS_LOCATION); // the client doesn't trust the server
+        spec.setClientCerts(
+                "classpath:" + A_SIGNED_CLIENT_CERT_LOCATION); // the server trusts this client
+        spec.setClientKey("classpath:" + A_SIGNED_CLIENT_KEY_LOCATION);
+        spec.setClientKeyPassword(A_SIGNED_CLIENT_KEY_PASSWORD);
+
+        return callWithStubs(buildClient(spec, "https", portInfo.getHttpsMutualTlsRequiredPort()))
+                .execute()
+                .isSuccessful();
+    }
+
+    @Override
+    public boolean callWithNoCertGivenButRequired() throws IOException {
+        final DefaultHttpRequestReplyClientSpec spec = new DefaultHttpRequestReplyClientSpec();
+        spec.setTrustCaCerts("classpath:" + A_CA_CERTS_LOCATION);
+
+        return callWithStubs(buildClient(spec, "https", portInfo.getHttpsMutualTlsRequiredPort()))
+                .execute()
+                .isSuccessful();
+    }
+
+    @Override
+    public boolean callWithJustServerSideTls() throws IOException {
+        final DefaultHttpRequestReplyClientSpec spec = new DefaultHttpRequestReplyClientSpec();
+        spec.setTrustCaCerts("classpath:" + A_CA_CERTS_LOCATION);
+
+        return callWithStubs(buildClient(spec, "https", portInfo.getHttpsServerTlsOnlyPort()))
+                .execute()
+                .isSuccessful();
+    }
+
+    private static Call callWithStubs(DefaultHttpRequestReplyClient defaultHttpRequestReplyClient) {
+        return defaultHttpRequestReplyClient.callOnce(getEmptyToFunction());
+    }
+
+    private static DefaultHttpRequestReplyClient buildClient(
+            DefaultHttpRequestReplyClientSpec spec, String protocol, int portInfo) {
+        return (DefaultHttpRequestReplyClient)
                 DefaultHttpRequestReplyClientFactory.INSTANCE.createTransportClient(
                         spec.toJson(objectMapper),
-                        URI.create("https://localhost:" + portInfo.getHttpsPort()));
-
-        return defaultHttpRequestReplyClient.call(requestSummary, metrics, toFunction);
-    }
-
-    @Override
-    public CompletableFuture<FromFunction> callWithUntrustedTlsClient(
-            ToFunctionRequestSummary requestSummary,
-            RemoteInvocationMetrics metrics,
-            ToFunction toFunction) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<FromFunction> callWithUntrustedTlsService(
-            ToFunctionRequestSummary requestSummary,
-            RemoteInvocationMetrics metrics,
-            ToFunction toFunction) {
-        return null;
+                        URI.create(String.format("%s://localhost:%s", protocol, portInfo)));
     }
 }

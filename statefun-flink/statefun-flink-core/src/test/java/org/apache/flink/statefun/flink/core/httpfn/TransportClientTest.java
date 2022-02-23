@@ -39,17 +39,15 @@ import org.apache.flink.statefun.sdk.reqreply.generated.FromFunction;
 import org.apache.flink.statefun.sdk.reqreply.generated.ToFunction;
 import org.junit.Test;
 
+import javax.net.ssl.SSLException;
 import javax.net.ssl.X509ExtendedKeyManager;
 import javax.net.ssl.X509ExtendedTrustManager;
 import java.io.IOException;
 import java.net.ServerSocket;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.apache.flink.statefun.flink.core.TestUtils.openStreamOrThrow;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public abstract class TransportClientTest {
     protected static final String A_CA_CERTS_LOCATION = "certs/a_caCerts.pem";
@@ -57,117 +55,98 @@ public abstract class TransportClientTest {
     protected static final String A_SIGNED_CLIENT_CERT_LOCATION = "certs/a_client.crt";
     protected static final String A_SIGNED_SERVER_CERT_LOCATION = "certs/a_server.crt";
     protected static final String B_SIGNED_CLIENT_CERT_LOCATION = "certs/b_client.crt";
+    protected static final String C_SIGNED_CLIENT_CERT_LOCATION = "certs/c_client.crt";
     protected static final String A_SIGNED_CLIENT_KEY_LOCATION = "certs/a_client.key";
+    protected static final String C_SIGNED_CLIENT_KEY_LOCATION = "certs/c_client.key";
     protected static final String A_SIGNED_SERVER_KEY_LOCATION = "certs/a_server.key";
     protected static final String B_SIGNED_CLIENT_KEY_LOCATION = "certs/b_client.key";
-    private static final String A_SIGNED_CLIENT_KEY_PASSWORD = "test";
-    private static final String A_SIGNED_SERVER_KEY_PASSWORD = A_SIGNED_CLIENT_KEY_PASSWORD;
-    private static final String B_SIGNED_CLIENT_KEY_PASSWORD = A_SIGNED_CLIENT_KEY_PASSWORD;
+    protected static final String A_SIGNED_CLIENT_KEY_PASSWORD = "test";
+    protected static final String A_SIGNED_SERVER_KEY_PASSWORD = A_SIGNED_CLIENT_KEY_PASSWORD;
+    protected static final String B_SIGNED_CLIENT_KEY_PASSWORD = A_SIGNED_CLIENT_KEY_PASSWORD;
+    private static final String TLS_FAILURE_MESSAGE = "Unexpected TLS connection test result";
 
     @Test
-    public void callingTestHttpServiceShouldReturnAFromFunction()
-            throws ExecutionException, InterruptedException, TimeoutException {
-        FromFunction fromFunction =
-                call(getStubRequestSummary(), getFakeMetrics(), getEmptyToFunction())
-                        .get(5, TimeUnit.SECONDS);
-
-        assertEquals(FromFunctionNettyTestServer.getStubFromFunction(), fromFunction);
+    public void callingTestHttpServiceShouldSucceed() throws IOException {
+        assertTrue(TLS_FAILURE_MESSAGE, call());
     }
 
     @Test
-    public void callingTestHttpServiceWithTlsFromPathShouldReturnAFromFunction()
-            throws ExecutionException, InterruptedException, TimeoutException {
-        FromFunction fromFunction =
-                callWithTlsFromPath(getStubRequestSummary(), getFakeMetrics(), getEmptyToFunction())
-                        .get(5, TimeUnit.SECONDS);
-
-        assertEquals(FromFunctionNettyTestServer.getStubFromFunction(), fromFunction);
+    public void callingTestHttpServiceUsingHttpsWithoutCaCertsShouldUseDefaultTruststore()
+            throws IOException {
+        assertTrue(TLS_FAILURE_MESSAGE, callHttpsWithoutAnyTlsSetup());
     }
 
     @Test
-    public void callingTestHttpServiceWithTlsFromClasspathShouldReturnAFromFunction()
-            throws ExecutionException, InterruptedException, TimeoutException {
-        FromFunction fromFunction =
-                callWithTlsFromClasspath(
-                                getStubRequestSummary(), getFakeMetrics(), getEmptyToFunction())
-                        .get(5, TimeUnit.SECONDS);
-
-        assertEquals(FromFunctionNettyTestServer.getStubFromFunction(), fromFunction);
+    public void callingTestHttpServiceUsingHttpsWithOnlyClientSetupShouldUseDefaultTruststore()
+            throws IOException {
+        assertTrue(TLS_FAILURE_MESSAGE, callHttpsWithOnlyClientSetup());
     }
 
     @Test
-    public void callingTestHttpServiceWithJustServerSideTlsShouldReturnAFromFunction() {
-        fail("not yet implemented");
+    public void callingTestHttpServiceWithTlsFromPathShouldSucceed() throws IOException {
+        assertTrue(TLS_FAILURE_MESSAGE, callWithTlsFromPath());
     }
 
-    @Test(expected = IllegalStateException.class)
-    public void callingTestHttpServiceWithUntrustedTlsClientShouldFail()
-            throws ExecutionException, InterruptedException, TimeoutException {
-        callWithUntrustedTlsClient(getStubRequestSummary(), getFakeMetrics(), getEmptyToFunction())
-                .get(5, TimeUnit.SECONDS);
+    @Test
+    public void callingTestHttpServiceWithTlsFromClasspathShouldSucceed() throws IOException {
+        assertTrue(TLS_FAILURE_MESSAGE, callWithTlsFromClasspath());
     }
 
-    @Test(expected = IllegalStateException.class)
-    public void callingTestHttpServiceWithUntrustedTlsServiceShouldFail()
-            throws ExecutionException, InterruptedException, TimeoutException {
-        callWithUntrustedTlsService(getStubRequestSummary(), getFakeMetrics(), getEmptyToFunction())
-                .get(5, TimeUnit.SECONDS);
+    @Test
+    public void callingTestHttpServiceWithTlsUsingKeyWithoutPasswordShouldSucceed()
+            throws IOException {
+        assertTrue(TLS_FAILURE_MESSAGE, callWithTlsFromClasspathWithoutKeyPassword());
     }
 
-    public abstract CompletableFuture<FromFunction> call(
-            ToFunctionRequestSummary requestSummary,
-            RemoteInvocationMetrics metrics,
-            ToFunction toFunction);
-
-    public abstract CompletableFuture<FromFunction> callWithTlsFromPath(
-            ToFunctionRequestSummary requestSummary,
-            RemoteInvocationMetrics metrics,
-            ToFunction toFunction);
-
-    public abstract CompletableFuture<FromFunction> callWithTlsFromClasspath(
-            ToFunctionRequestSummary requestSummary,
-            RemoteInvocationMetrics metrics,
-            ToFunction toFunction);
-
-    public abstract CompletableFuture<FromFunction> callWithUntrustedTlsClient(
-            ToFunctionRequestSummary requestSummary,
-            RemoteInvocationMetrics metrics,
-            ToFunction toFunction);
-
-    public abstract CompletableFuture<FromFunction> callWithUntrustedTlsService(
-            ToFunctionRequestSummary requestSummary,
-            RemoteInvocationMetrics metrics,
-            ToFunction toFunction);
-
-    private static ToFunctionRequestSummary getStubRequestSummary() {
-        return new ToFunctionRequestSummary(
-                new Address(new FunctionType("ns", "type"), "id"), 1, 0, 1);
+    @Test
+    public void callingTestHttpServiceWithJustServerSideTlsShouldSucceed() throws IOException {
+        assertTrue(TLS_FAILURE_MESSAGE, callWithJustServerSideTls());
     }
 
-    private static ToFunction getEmptyToFunction() {
-        return ToFunction.newBuilder().build();
+    @Test(expected = SSLException.class)
+    public void callingTestHttpServiceWithUntrustedTlsClientShouldFail() throws IOException {
+        assertFalse(callWithUntrustedTlsClient());
     }
 
-    private static RemoteInvocationMetrics getFakeMetrics() {
-        return new RemoteInvocationMetrics() {
-            @Override
-            public void remoteInvocationFailures() {}
-
-            @Override
-            public void remoteInvocationLatency(long elapsed) {}
-        };
+    @Test(expected = SSLException.class)
+    public void callingAnUntrustedTestHttpServiceWithTlsClientShouldFail() throws IOException {
+        assertFalse(callUntrustedServerWithTlsClient());
     }
+
+    @Test(expected = SSLException.class)
+    public void callingTestHttpServiceWhereTlsRequiredButNoCertGivenShouldFail()
+            throws IOException {
+        assertFalse(callWithNoCertGivenButRequired());
+    }
+
+    public abstract boolean call() throws IOException;
+
+    protected abstract boolean callHttpsWithoutAnyTlsSetup() throws IOException;
+
+    protected abstract boolean callHttpsWithOnlyClientSetup() throws IOException;
+
+    public abstract boolean callWithTlsFromPath() throws IOException;
+
+    public abstract boolean callWithTlsFromClasspath() throws IOException;
+
+    public abstract boolean callWithTlsFromClasspathWithoutKeyPassword() throws IOException;
+
+    public abstract boolean callWithUntrustedTlsClient() throws IOException;
+
+    public abstract boolean callUntrustedServerWithTlsClient() throws IOException;
+
+    public abstract boolean callWithNoCertGivenButRequired() throws IOException;
+
+    public abstract boolean callWithJustServerSideTls() throws IOException;
 
     public static class FromFunctionNettyTestServer {
         private EventLoopGroup eventLoopGroup;
         private EventLoopGroup workerGroup;
-        private EventLoopGroup eventLoopGroupHttps;
-        private EventLoopGroup workerGroupHttps;
 
         public static void main(String[] args) {
             PortInfo portInfo = new FromFunctionNettyTestServer().runAndGetPortInfo();
             System.out.println(portInfo.httpPort);
-            System.out.println(portInfo.httpsPort);
+            System.out.println(portInfo.httpsMutualTlsRequiredPort);
         }
 
         public static FromFunction getStubFromFunction() {
@@ -182,97 +161,106 @@ public abstract class TransportClientTest {
             eventLoopGroup = new NioEventLoopGroup();
             workerGroup = new NioEventLoopGroup();
 
-            eventLoopGroupHttps = new NioEventLoopGroup();
-            workerGroupHttps = new NioEventLoopGroup();
-
             try {
-                ServerBootstrap httpBootstrap =
-                        new ServerBootstrap()
-                                .group(eventLoopGroup, workerGroup)
-                                .channel(NioServerSocketChannel.class)
-                                .childHandler(fromFunctionOkHandler())
-                                .option(ChannelOption.SO_BACKLOG, 128)
-                                .childOption(ChannelOption.SO_KEEPALIVE, true);
+                ServerBootstrap httpBootstrap = getServerBootstrap(getChannelInitializer());
 
-                ServerBootstrap httpsBootstrap =
-                        new ServerBootstrap()
-                                .group(eventLoopGroupHttps, workerGroupHttps)
-                                .channel(NioServerSocketChannel.class)
-                                .childHandler(
-                                        fromFunctionOkHandler(
-                                                "classpath:" + A_CA_CERTS_LOCATION,
-                                                "classpath:" + A_SIGNED_SERVER_CERT_LOCATION,
-                                                "classpath:" + A_SIGNED_SERVER_KEY_LOCATION,
-                                                A_SIGNED_SERVER_KEY_PASSWORD))
-                                .option(ChannelOption.SO_BACKLOG, 128)
-                                .childOption(ChannelOption.SO_KEEPALIVE, true);
+                ServerBootstrap httpsMutualTlsBootstrap =
+                        getServerBootstrap(
+                                getChannelInitializer(
+                                        loadKeyManagerForTlsServerA(),
+                                        loadTrustManager("classpath:" + A_CA_CERTS_LOCATION)));
+
+                ServerBootstrap httpsServerTlsBootstrap =
+                        getServerBootstrap(getChannelInitializer(loadKeyManagerForTlsServerA()));
 
                 int httpPort = randomFreePort();
                 httpBootstrap.bind(httpPort).sync();
 
-                int httpsPort = randomFreePort();
-                httpsBootstrap.bind(httpsPort).sync();
+                int httpsMutualTlsPort = randomFreePort();
+                httpsMutualTlsBootstrap.bind(httpsMutualTlsPort).sync();
 
-                return new PortInfo(httpPort, httpsPort);
+                int httpsServerTlsOnlyPort = randomFreePort();
+                httpsServerTlsBootstrap.bind(httpsServerTlsOnlyPort).sync();
+
+                return new PortInfo(httpPort, httpsMutualTlsPort, httpsServerTlsOnlyPort);
             } catch (Exception e) {
                 throw new IllegalStateException("Could not start a test netty server", e);
             }
         }
 
-        public void close() throws InterruptedException {
-            eventLoopGroup.shutdownGracefully().sync();
-            workerGroup.shutdownGracefully().sync();
-
-            eventLoopGroupHttps.shutdownGracefully().sync();
-            workerGroupHttps.shutdownGracefully().sync();
+        private ChannelInitializer<Channel> getChannelInitializer(
+                X509ExtendedKeyManager keyManager, X509ExtendedTrustManager trustManager) {
+            return getTlsEnabledInitializer(
+                    SslContextBuilder.forServer(keyManager).trustManager(trustManager),
+                    ClientAuth.REQUIRE);
         }
 
-        private ChannelInitializer<Channel> fromFunctionOkHandler() {
+        private ChannelInitializer<Channel> getChannelInitializer(
+                X509ExtendedKeyManager keyManager) {
+            return getTlsEnabledInitializer(
+                    SslContextBuilder.forServer(keyManager), ClientAuth.NONE);
+        }
+
+        private ChannelInitializer<Channel> getChannelInitializer() {
             return new ChannelInitializer<Channel>() {
                 @Override
                 protected void initChannel(Channel channel) {
-                    ChannelPipeline pipeline = channel.pipeline();
-                    pipeline.addLast(new HttpServerCodec());
-                    pipeline.addLast(new HttpObjectAggregator(Integer.MAX_VALUE));
-                    pipeline.addLast(stubFromFunctionHandler());
+                    addStubResponseToThePipeline(channel.pipeline());
                 }
             };
         }
 
-        private ChannelInitializer<Channel> fromFunctionOkHandler(
-                String trustedCaCertsLocation,
-                String serverCertLocation,
-                String serverKeyLocation,
-                String keyPassword) {
+        private ChannelInitializer<Channel> getTlsEnabledInitializer(
+                SslContextBuilder sslContextBuilder, ClientAuth clientAuth) {
             return new ChannelInitializer<Channel>() {
                 @Override
                 protected void initChannel(Channel channel) throws IOException {
                     ChannelPipeline pipeline = channel.pipeline();
-                    X509ExtendedKeyManager keyManager =
-                            PemUtils.loadIdentityMaterial(
-                                    ResourceLocator.findNamedResource(serverCertLocation)
-                                            .openStream(),
-                                    ResourceLocator.findNamedResource(serverKeyLocation)
-                                            .openStream(),
-                                    keyPassword.toCharArray());
-                    X509ExtendedTrustManager trustManager =
-                            PemUtils.loadTrustMaterial(
-                                    ResourceLocator.findNamedResource(trustedCaCertsLocation)
-                                            .openStream());
-
-                    SslContext sslCtx =
-                            SslContextBuilder.forServer(keyManager)
-                                    .trustManager(trustManager)
+                    SslContext sslContext =
+                            sslContextBuilder
                                     .sslProvider(SslProvider.JDK)
-                                    .clientAuth(ClientAuth.REQUIRE)
+                                    .clientAuth(clientAuth)
                                     .build();
-                    pipeline.addLast(sslCtx.newHandler(channel.alloc()));
-
-                    pipeline.addLast(new HttpServerCodec());
-                    pipeline.addLast(new HttpObjectAggregator(Integer.MAX_VALUE));
-                    pipeline.addLast(stubFromFunctionHandler());
+                    pipeline.addLast(sslContext.newHandler(channel.alloc()));
+                    addStubResponseToThePipeline(pipeline);
                 }
             };
+        }
+
+        private X509ExtendedTrustManager loadTrustManager(String trustManagerLocation) {
+            return PemUtils.loadTrustMaterial(
+                    openStreamOrThrow(ResourceLocator.findNamedResource(trustManagerLocation)));
+        }
+
+        private X509ExtendedKeyManager loadKeyManagerForTlsServerA() {
+            return PemUtils.loadIdentityMaterial(
+                    openStreamOrThrow(
+                            ResourceLocator.findNamedResource(
+                                    "classpath:" + A_SIGNED_SERVER_CERT_LOCATION)),
+                    openStreamOrThrow(
+                            ResourceLocator.findNamedResource(
+                                    "classpath:" + A_SIGNED_SERVER_KEY_LOCATION)),
+                    A_SIGNED_SERVER_KEY_PASSWORD.toCharArray());
+        }
+
+        public void close() throws InterruptedException {
+            eventLoopGroup.shutdownGracefully().sync();
+            workerGroup.shutdownGracefully().sync();
+        }
+
+        private ServerBootstrap getServerBootstrap(ChannelInitializer<Channel> childHandler) {
+            return new ServerBootstrap()
+                    .group(eventLoopGroup, workerGroup)
+                    .channel(NioServerSocketChannel.class)
+                    .childHandler(childHandler)
+                    .option(ChannelOption.SO_BACKLOG, 128)
+                    .childOption(ChannelOption.SO_KEEPALIVE, true);
+        }
+
+        private void addStubResponseToThePipeline(ChannelPipeline pipeline) {
+            pipeline.addLast(new HttpServerCodec());
+            pipeline.addLast(new HttpObjectAggregator(Integer.MAX_VALUE));
+            pipeline.addLast(stubFromFunctionHandler());
         }
 
         private SimpleChannelInboundHandler<FullHttpRequest> stubFromFunctionHandler() {
@@ -302,23 +290,56 @@ public abstract class TransportClientTest {
                         "No free ports available for the test netty service to use");
             }
         }
+
+        private SslContext buildSslContextOrThrow(SslContextBuilder sslContextBuilder) {
+            try {
+                return sslContextBuilder.build();
+            } catch (SSLException e) {
+                throw new IllegalStateException("Could not build the ssl context for a test", e);
+            }
+        }
     }
 
     public static class PortInfo {
         private final int httpPort;
-        private final int httpsPort;
+        private final int httpsMutualTlsRequiredPort;
+        private final int httpsServerTlsOnlyPort;
 
-        public PortInfo(int httpPort, int httpsPort) {
+        public PortInfo(int httpPort, int httpsMutualTlsRequiredPort, int httpsServerTlsOnlyPort) {
             this.httpPort = httpPort;
-            this.httpsPort = httpsPort;
+            this.httpsMutualTlsRequiredPort = httpsMutualTlsRequiredPort;
+            this.httpsServerTlsOnlyPort = httpsServerTlsOnlyPort;
         }
 
         public int getHttpPort() {
             return httpPort;
         }
 
-        public int getHttpsPort() {
-            return httpsPort;
+        public int getHttpsMutualTlsRequiredPort() {
+            return httpsMutualTlsRequiredPort;
         }
+
+        public int getHttpsServerTlsOnlyPort() {
+            return httpsServerTlsOnlyPort;
+        }
+    }
+
+    protected static ToFunctionRequestSummary getStubRequestSummary() {
+        return new ToFunctionRequestSummary(
+                new Address(new FunctionType("ns", "type"), "id"), 1, 0, 1);
+    }
+
+    protected static ToFunction getEmptyToFunction() {
+        return ToFunction.newBuilder().build();
+    }
+
+    protected static RemoteInvocationMetrics getFakeMetrics() {
+        return new RemoteInvocationMetrics() {
+            @Override
+            public void remoteInvocationFailures() {}
+
+            @Override
+            public void remoteInvocationLatency(long elapsed) {}
+        };
     }
 }
