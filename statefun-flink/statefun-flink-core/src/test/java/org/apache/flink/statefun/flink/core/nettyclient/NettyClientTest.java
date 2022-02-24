@@ -25,7 +25,6 @@ import org.apache.flink.shaded.netty4.io.netty.channel.ChannelPromise;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.*;
 import org.apache.flink.statefun.flink.core.httpfn.TransportClientTest;
 import org.junit.AfterClass;
-import org.junit.Before;
 import org.junit.BeforeClass;
 
 import java.net.URI;
@@ -43,7 +42,6 @@ import static org.junit.Assert.assertNotNull;
 public class NettyClientTest extends TransportClientTest {
     private static FromFunctionNettyTestServer testServer;
     private static PortInfo portInfo;
-    CompletableFuture<Integer> callCompletedWithStatusCode;
 
     @BeforeClass
     public static void beforeClass() {
@@ -54,11 +52,6 @@ public class NettyClientTest extends TransportClientTest {
     @AfterClass
     public static void afterClass() throws Exception {
         testServer.close();
-    }
-
-    @Before
-    public void setUp() {
-        callCompletedWithStatusCode = new CompletableFuture<>();
     }
 
     @Override
@@ -185,52 +178,60 @@ public class NettyClientTest extends TransportClientTest {
                         portInfo.getHttpsServerTlsOnlyPort()));
     }
 
-    private NettyClient createNettyClient(NettyRequestReplySpec spec, String protocol, int port) {
-        return NettyClient.from(
-                new NettySharedResources(),
-                spec,
-                URI.create(String.format("%s://localhost:%s", protocol, port)),
-                new ChannelDuplexHandler() {
-                    @Override
-                    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause)
-                            throws Exception {
-                        callCompletedWithStatusCode.completeExceptionally(cause);
-                        super.exceptionCaught(ctx, cause);
-                    }
+    private NettyClientWithResultStatusCodeFuture createNettyClient(
+            NettyRequestReplySpec spec, String protocol, int port) {
+        CompletableFuture<Integer> statusCodeFuture = new CompletableFuture<>();
+        NettyClient nettyClient =
+                NettyClient.from(
+                        new NettySharedResources(),
+                        spec,
+                        URI.create(String.format("%s://localhost:%s", protocol, port)),
+                        new ChannelDuplexHandler() {
+                            @Override
+                            public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause)
+                                    throws Exception {
+                                statusCodeFuture.completeExceptionally(cause);
+                                super.exceptionCaught(ctx, cause);
+                            }
 
-                    @Override
-                    public void channelRead(ChannelHandlerContext ctx, Object msg)
-                            throws Exception {
-                        final FullHttpResponse response =
-                                (msg instanceof FullHttpResponse) ? (FullHttpResponse) msg : null;
-                        if (response != null) {
-                            callCompletedWithStatusCode.complete(response.status().code());
-                        } else {
-                            callCompletedWithStatusCode.completeExceptionally(
-                                    new IllegalStateException(
-                                            "the object received by the test is not a FullHttpResponse"));
-                        }
-                        super.channelRead(ctx, msg);
-                    }
+                            @Override
+                            public void channelRead(ChannelHandlerContext ctx, Object msg)
+                                    throws Exception {
+                                final FullHttpResponse response =
+                                        (msg instanceof FullHttpResponse)
+                                                ? (FullHttpResponse) msg
+                                                : null;
+                                if (response != null) {
+                                    statusCodeFuture.complete(response.status().code());
+                                } else {
+                                    statusCodeFuture.completeExceptionally(
+                                            new IllegalStateException(
+                                                    "the object received by the test is not a FullHttpResponse"));
+                                }
+                                super.channelRead(ctx, msg);
+                            }
 
-                    @Override
-                    public void write(
-                            ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
-                        final NettyRequest request = (NettyRequest) msg;
-                        final ByteBuf bodyBuf =
-                                serializeProtobuf(
-                                        ctx.channel().alloc()::buffer, request.toFunction());
-                        DefaultFullHttpRequest http =
-                                new DefaultFullHttpRequest(
-                                        HttpVersion.HTTP_1_1,
-                                        HttpMethod.POST,
-                                        request.uri(),
-                                        bodyBuf,
-                                        new DefaultHttpHeaders(),
-                                        NettyHeaders.EMPTY);
-                        ctx.writeAndFlush(http);
-                    }
-                });
+                            @Override
+                            public void write(
+                                    ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
+                                final NettyRequest request = (NettyRequest) msg;
+                                final ByteBuf bodyBuf =
+                                        serializeProtobuf(
+                                                ctx.channel().alloc()::buffer,
+                                                request.toFunction());
+                                DefaultFullHttpRequest http =
+                                        new DefaultFullHttpRequest(
+                                                HttpVersion.HTTP_1_1,
+                                                HttpMethod.POST,
+                                                request.uri(),
+                                                bodyBuf,
+                                                new DefaultHttpHeaders(),
+                                                NettyHeaders.EMPTY);
+                                ctx.writeAndFlush(http);
+                            }
+                        });
+
+        return new NettyClientWithResultStatusCodeFuture(nettyClient, statusCodeFuture);
     }
 
     private NettyRequestReplySpec createHttpSpec() {
@@ -252,18 +253,39 @@ public class NettyClientTest extends TransportClientTest {
                 new NettyRequestReplySpec.Timeouts());
     }
 
-    private Boolean callUsingStubsAndCheckSuccess(NettyClient nettyClient)
+    private Boolean callUsingStubsAndCheckSuccess(
+            NettyClientWithResultStatusCodeFuture nettyClientAndStatusCodeFuture)
             throws InterruptedException, ExecutionException, TimeoutException {
 
         NettyRequest nettyRequest =
                 new NettyRequest(
-                        nettyClient,
+                        nettyClientAndStatusCodeFuture.nettyClient,
                         getFakeMetrics(),
                         getStubRequestSummary(),
                         getEmptyToFunction());
 
         nettyRequest.start();
 
-        return callCompletedWithStatusCode.get(5, TimeUnit.SECONDS) == 200;
+        return nettyClientAndStatusCodeFuture.resultStatusCodeFuture.get(5, TimeUnit.SECONDS)
+                == 200;
+    }
+
+    private static class NettyClientWithResultStatusCodeFuture {
+        private final NettyClient nettyClient;
+        private final CompletableFuture<Integer> resultStatusCodeFuture;
+
+        public NettyClientWithResultStatusCodeFuture(
+                NettyClient nettyClient, CompletableFuture<Integer> resultStatusCodeFuture) {
+            this.nettyClient = nettyClient;
+            this.resultStatusCodeFuture = resultStatusCodeFuture;
+        }
+
+        public NettyClient getNettyClient() {
+            return nettyClient;
+        }
+
+        public CompletableFuture<Integer> getResultStatusCodeFuture() {
+            return resultStatusCodeFuture;
+        }
     }
 }

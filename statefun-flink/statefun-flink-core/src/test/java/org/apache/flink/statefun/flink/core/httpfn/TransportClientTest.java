@@ -53,15 +53,15 @@ import static org.junit.Assert.assertTrue;
 
 public abstract class TransportClientTest {
     protected static final String A_CA_CERTS_LOCATION = "certs/a_caCerts.pem";
-    protected static final String B_CA_CERTS_LOCATION = "certs/b_caCerts.pem";
     protected static final String A_SIGNED_CLIENT_CERT_LOCATION = "certs/a_client.crt";
-    protected static final String A_SIGNED_SERVER_CERT_LOCATION = "certs/a_server.crt";
-    protected static final String B_SIGNED_CLIENT_CERT_LOCATION = "certs/b_client.crt";
-    protected static final String C_SIGNED_CLIENT_CERT_LOCATION = "certs/c_client.crt";
     protected static final String A_SIGNED_CLIENT_KEY_LOCATION = "certs/a_client.key";
-    protected static final String C_SIGNED_CLIENT_KEY_LOCATION = "certs/c_client.key";
+    protected static final String A_SIGNED_SERVER_CERT_LOCATION = "certs/a_server.crt";
     protected static final String A_SIGNED_SERVER_KEY_LOCATION = "certs/a_server.key";
+    protected static final String B_CA_CERTS_LOCATION = "certs/b_caCerts.pem";
+    protected static final String B_SIGNED_CLIENT_CERT_LOCATION = "certs/b_client.crt";
     protected static final String B_SIGNED_CLIENT_KEY_LOCATION = "certs/b_client.key";
+    protected static final String C_SIGNED_CLIENT_CERT_LOCATION = "certs/c_client.crt";
+    protected static final String C_SIGNED_CLIENT_KEY_LOCATION = "certs/c_client.key";
     protected static final String A_SIGNED_CLIENT_KEY_PASSWORD = "test";
     protected static final String A_SIGNED_SERVER_KEY_PASSWORD = A_SIGNED_CLIENT_KEY_PASSWORD;
     protected static final String B_SIGNED_CLIENT_KEY_PASSWORD = A_SIGNED_CLIENT_KEY_PASSWORD;
