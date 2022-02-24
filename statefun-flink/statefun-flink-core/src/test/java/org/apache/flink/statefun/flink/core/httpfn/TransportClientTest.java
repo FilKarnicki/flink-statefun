@@ -50,297 +50,262 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public abstract class TransportClientTest {
-    protected static final String A_CA_CERTS_LOCATION = "certs/a_caCerts.pem";
-    protected static final String A_SIGNED_CLIENT_CERT_LOCATION = "certs/a_client.crt";
-    protected static final String A_SIGNED_CLIENT_KEY_LOCATION = "certs/a_client.key";
-    protected static final String A_SIGNED_SERVER_CERT_LOCATION = "certs/a_server.crt";
-    protected static final String A_SIGNED_SERVER_KEY_LOCATION = "certs/a_server.key";
-    protected static final String B_CA_CERTS_LOCATION = "certs/b_caCerts.pem";
-    protected static final String B_SIGNED_CLIENT_CERT_LOCATION = "certs/b_client.crt";
-    protected static final String B_SIGNED_CLIENT_KEY_LOCATION = "certs/b_client.key";
-    protected static final String C_SIGNED_CLIENT_CERT_LOCATION = "certs/c_client.crt";
-    protected static final String C_SIGNED_CLIENT_KEY_LOCATION = "certs/c_client.key";
-    protected static final String A_SIGNED_CLIENT_KEY_PASSWORD = "test";
-    protected static final String A_SIGNED_SERVER_KEY_PASSWORD = A_SIGNED_CLIENT_KEY_PASSWORD;
-    protected static final String B_SIGNED_CLIENT_KEY_PASSWORD = A_SIGNED_CLIENT_KEY_PASSWORD;
-    private static final String TLS_FAILURE_MESSAGE = "Unexpected TLS connection test result";
+  protected static final String A_CA_CERTS_LOCATION = "certs/a_caCerts.pem";
+  protected static final String A_SIGNED_CLIENT_CERT_LOCATION = "certs/a_client.crt";
+  protected static final String A_SIGNED_CLIENT_KEY_LOCATION = "certs/a_client.key";
+  protected static final String A_SIGNED_SERVER_CERT_LOCATION = "certs/a_server.crt";
+  protected static final String A_SIGNED_SERVER_KEY_LOCATION = "certs/a_server.key";
+  protected static final String B_CA_CERTS_LOCATION = "certs/b_caCerts.pem";
+  protected static final String B_SIGNED_CLIENT_CERT_LOCATION = "certs/b_client.crt";
+  protected static final String B_SIGNED_CLIENT_KEY_LOCATION = "certs/b_client.key";
+  protected static final String C_SIGNED_CLIENT_CERT_LOCATION = "certs/c_client.crt";
+  protected static final String C_SIGNED_CLIENT_KEY_LOCATION = "certs/c_client.key";
+  protected static final String A_SIGNED_CLIENT_KEY_PASSWORD = "test";
+  protected static final String A_SIGNED_SERVER_KEY_PASSWORD = A_SIGNED_CLIENT_KEY_PASSWORD;
+  protected static final String B_SIGNED_CLIENT_KEY_PASSWORD = A_SIGNED_CLIENT_KEY_PASSWORD;
+  private static final String TLS_FAILURE_MESSAGE = "Unexpected TLS connection test result";
 
-    @Test
-    public void callingTestHttpServiceShouldSucceed() throws Throwable {
-        assertTrue(TLS_FAILURE_MESSAGE, call());
+  @Test
+  public void callingTestHttpServiceShouldSucceed() throws Throwable {
+    assertTrue(TLS_FAILURE_MESSAGE, call());
+  }
+
+  @Test
+  public void callingTestHttpServiceUsingHttpsWithoutCaCertsShouldUseDefaultTruststore() throws Throwable {
+    assertTrue(TLS_FAILURE_MESSAGE, callHttpsWithoutAnyTlsSetup());
+  }
+
+  @Test
+  public void callingTestHttpServiceUsingHttpsWithOnlyClientSetupShouldUseDefaultTruststoreAndSucceed() throws Throwable {
+    assertTrue(TLS_FAILURE_MESSAGE, callHttpsWithOnlyClientSetup());
+  }
+
+  @Test
+  public void callingTestHttpServiceWithTlsFromPathShouldSucceed() throws Throwable {
+    assertTrue(TLS_FAILURE_MESSAGE, callWithTlsFromPath());
+  }
+
+  @Test
+  public void callingTestHttpServiceWithTlsFromClasspathShouldSucceed() throws Throwable {
+    assertTrue(TLS_FAILURE_MESSAGE, callWithTlsFromClasspath());
+  }
+
+  @Test
+  public void callingTestHttpServiceWithTlsUsingKeyWithoutPasswordShouldSucceed() throws Throwable {
+    assertTrue(TLS_FAILURE_MESSAGE, callWithTlsFromClasspathWithoutKeyPassword());
+  }
+
+  @Test
+  public void callingTestHttpServiceWithJustServerSideTlsShouldSucceed() throws Throwable {
+    assertTrue(TLS_FAILURE_MESSAGE, callWithJustServerSideTls());
+  }
+
+  @Test(expected = SSLException.class)
+  public void callingTestHttpServiceWithUntrustedTlsClientShouldFail() throws Throwable {
+    assertFalse(callWithUntrustedTlsClient());
+  }
+
+  @Test(expected = SSLException.class)
+  public void callingAnUntrustedTestHttpServiceWithTlsClientShouldFail() throws Throwable {
+    assertFalse(callUntrustedServerWithTlsClient());
+  }
+
+  @Test(expected = SSLException.class)
+  public void callingTestHttpServiceWhereTlsRequiredButNoCertGivenShouldFail() throws Throwable {
+    assertFalse(callWithNoCertGivenButRequired());
+  }
+
+  public abstract boolean call() throws Throwable;
+
+  protected abstract boolean callHttpsWithoutAnyTlsSetup() throws Throwable;
+
+  protected abstract boolean callHttpsWithOnlyClientSetup() throws Throwable;
+
+  public abstract boolean callWithTlsFromPath() throws Throwable;
+
+  public abstract boolean callWithTlsFromClasspath() throws Throwable;
+
+  public abstract boolean callWithTlsFromClasspathWithoutKeyPassword() throws Throwable;
+
+  public abstract boolean callWithUntrustedTlsClient() throws Throwable;
+
+  public abstract boolean callUntrustedServerWithTlsClient() throws Throwable;
+
+  public abstract boolean callWithNoCertGivenButRequired() throws Throwable;
+
+  public abstract boolean callWithJustServerSideTls() throws Throwable;
+
+  public static class FromFunctionNettyTestServer {
+    private EventLoopGroup eventLoopGroup;
+    private EventLoopGroup workerGroup;
+
+    public static void main(String[] args) {
+      PortInfo portInfo = new FromFunctionNettyTestServer().runAndGetPortInfo();
+      System.out.println(portInfo.httpPort);
+      System.out.println(portInfo.httpsMutualTlsRequiredPort);
     }
 
-    @Test
-    public void callingTestHttpServiceUsingHttpsWithoutCaCertsShouldUseDefaultTruststore()
-            throws Throwable {
-        assertTrue(TLS_FAILURE_MESSAGE, callHttpsWithoutAnyTlsSetup());
+    public static FromFunction getStubFromFunction() {
+      return FromFunction.newBuilder()
+          .setInvocationResult(FromFunction.InvocationResponse.newBuilder()
+              .addOutgoingEgresses(FromFunction.EgressMessage.newBuilder()))
+          .build();
     }
 
-    @Test
-    public void
-            callingTestHttpServiceUsingHttpsWithOnlyClientSetupShouldUseDefaultTruststoreAndSucceed()
-                    throws Throwable {
-        assertTrue(TLS_FAILURE_MESSAGE, callHttpsWithOnlyClientSetup());
+    public PortInfo runAndGetPortInfo() {
+      eventLoopGroup = new NioEventLoopGroup();
+      workerGroup = new NioEventLoopGroup();
+
+      try {
+        ServerBootstrap httpBootstrap = getServerBootstrap(getChannelInitializer());
+
+        ServerBootstrap httpsMutualTlsBootstrap = getServerBootstrap(
+            getChannelInitializer(loadKeyManagerForTlsServerA(), loadTrustManagerForTlsServerA()));
+
+        ServerBootstrap httpsServerTlsBootstrap = getServerBootstrap(
+            getChannelInitializer(loadKeyManagerForTlsServerA()));
+
+        int httpPort = randomFreePort();
+        httpBootstrap.bind(httpPort).sync();
+
+        int httpsMutualTlsPort = randomFreePort();
+        httpsMutualTlsBootstrap.bind(httpsMutualTlsPort).sync();
+
+        int httpsServerTlsOnlyPort = randomFreePort();
+        httpsServerTlsBootstrap.bind(httpsServerTlsOnlyPort).sync();
+
+        return new PortInfo(httpPort, httpsMutualTlsPort, httpsServerTlsOnlyPort);
+      } catch (Exception e) {
+        throw new IllegalStateException("Could not start a test netty server", e);
+      }
     }
 
-    @Test
-    public void callingTestHttpServiceWithTlsFromPathShouldSucceed() throws Throwable {
-        assertTrue(TLS_FAILURE_MESSAGE, callWithTlsFromPath());
+    private ChannelInitializer<Channel> getChannelInitializer(X509ExtendedKeyManager keyManager, X509ExtendedTrustManager trustManager) {
+      return getTlsEnabledInitializer(SslContextBuilder.forServer(keyManager).trustManager(trustManager), ClientAuth.REQUIRE);
     }
 
-    @Test
-    public void callingTestHttpServiceWithTlsFromClasspathShouldSucceed() throws Throwable {
-        assertTrue(TLS_FAILURE_MESSAGE, callWithTlsFromClasspath());
+    private ChannelInitializer<Channel> getChannelInitializer(X509ExtendedKeyManager keyManager) {
+      return getTlsEnabledInitializer(SslContextBuilder.forServer(keyManager), ClientAuth.NONE);
     }
 
-    @Test
-    public void callingTestHttpServiceWithTlsUsingKeyWithoutPasswordShouldSucceed()
-            throws Throwable {
-        assertTrue(TLS_FAILURE_MESSAGE, callWithTlsFromClasspathWithoutKeyPassword());
+    private ChannelInitializer<Channel> getChannelInitializer() {
+      return new ChannelInitializer<Channel>() {
+        @Override
+        protected void initChannel(Channel channel) {
+          addStubResponseToThePipeline(channel.pipeline());
+        }
+      };
     }
 
-    @Test
-    public void callingTestHttpServiceWithJustServerSideTlsShouldSucceed() throws Throwable {
-        assertTrue(TLS_FAILURE_MESSAGE, callWithJustServerSideTls());
+    private ChannelInitializer<Channel> getTlsEnabledInitializer(SslContextBuilder sslContextBuilder, ClientAuth clientAuth) {
+      return new ChannelInitializer<Channel>() {
+        @Override
+        protected void initChannel(Channel channel) throws IOException {
+          ChannelPipeline pipeline = channel.pipeline();
+          SslContext sslContext = sslContextBuilder
+              .sslProvider(SslProvider.JDK)
+              .clientAuth(clientAuth)
+              .build();
+          pipeline.addLast(sslContext.newHandler(channel.alloc()));
+          addStubResponseToThePipeline(pipeline);
+        }
+      };
     }
 
-    @Test(expected = SSLException.class)
-    public void callingTestHttpServiceWithUntrustedTlsClientShouldFail() throws Throwable {
-        assertFalse(callWithUntrustedTlsClient());
+    private X509ExtendedTrustManager loadTrustManagerForTlsServerA() {
+      return PemUtils.loadTrustMaterial(openStreamOrThrow(ResourceLocator.findNamedResource("classpath:" + A_CA_CERTS_LOCATION)));
     }
 
-    @Test(expected = SSLException.class)
-    public void callingAnUntrustedTestHttpServiceWithTlsClientShouldFail() throws Throwable {
-        assertFalse(callUntrustedServerWithTlsClient());
+    private X509ExtendedKeyManager loadKeyManagerForTlsServerA() {
+      return PemUtils.loadIdentityMaterial(openStreamOrThrow(ResourceLocator.findNamedResource("classpath:" + A_SIGNED_SERVER_CERT_LOCATION)),
+          openStreamOrThrow(ResourceLocator.findNamedResource("classpath:" + A_SIGNED_SERVER_KEY_LOCATION)),
+          A_SIGNED_SERVER_KEY_PASSWORD.toCharArray());
     }
 
-    @Test(expected = SSLException.class)
-    public void callingTestHttpServiceWhereTlsRequiredButNoCertGivenShouldFail() throws Throwable {
-        assertFalse(callWithNoCertGivenButRequired());
+    public void close() throws InterruptedException {
+      eventLoopGroup.shutdownGracefully().sync();
+      workerGroup.shutdownGracefully().sync();
     }
 
-    public abstract boolean call() throws Throwable;
+    private ServerBootstrap getServerBootstrap(ChannelInitializer<Channel> childHandler) {
+      return new ServerBootstrap()
+          .group(eventLoopGroup, workerGroup)
+          .channel(NioServerSocketChannel.class)
+          .childHandler(childHandler)
+          .option(ChannelOption.SO_BACKLOG, 128)
+          .childOption(ChannelOption.SO_KEEPALIVE, true);
+    }
 
-    protected abstract boolean callHttpsWithoutAnyTlsSetup() throws Throwable;
+    private void addStubResponseToThePipeline(ChannelPipeline pipeline) {
+      pipeline.addLast(new HttpServerCodec());
+      pipeline.addLast(new HttpObjectAggregator(Integer.MAX_VALUE));
+      pipeline.addLast(stubFromFunctionHandler());
+    }
 
-    protected abstract boolean callHttpsWithOnlyClientSetup() throws Throwable;
-
-    public abstract boolean callWithTlsFromPath() throws Throwable;
-
-    public abstract boolean callWithTlsFromClasspath() throws Throwable;
-
-    public abstract boolean callWithTlsFromClasspathWithoutKeyPassword() throws Throwable;
-
-    public abstract boolean callWithUntrustedTlsClient() throws Throwable;
-
-    public abstract boolean callUntrustedServerWithTlsClient() throws Throwable;
-
-    public abstract boolean callWithNoCertGivenButRequired() throws Throwable;
-
-    public abstract boolean callWithJustServerSideTls() throws Throwable;
-
-    public static class FromFunctionNettyTestServer {
-        private EventLoopGroup eventLoopGroup;
-        private EventLoopGroup workerGroup;
-
-        public static void main(String[] args) {
-            PortInfo portInfo = new FromFunctionNettyTestServer().runAndGetPortInfo();
-            System.out.println(portInfo.httpPort);
-            System.out.println(portInfo.httpsMutualTlsRequiredPort);
+    private SimpleChannelInboundHandler<FullHttpRequest> stubFromFunctionHandler() {
+      return new SimpleChannelInboundHandler<FullHttpRequest>() {
+        @Override
+        protected void channelRead0(ChannelHandlerContext channelHandlerContext, FullHttpRequest fullHttpRequest) {
+          ByteBuf content = Unpooled.copiedBuffer(getStubFromFunction().toByteArray());
+          FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK, content);
+          response.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/octet-stream");
+          response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.readableBytes());
+          channelHandlerContext.write(response);
+          channelHandlerContext.flush();
         }
+      };
+    }
 
-        public static FromFunction getStubFromFunction() {
-            return FromFunction.newBuilder()
-                    .setInvocationResult(
-                            FromFunction.InvocationResponse.newBuilder()
-                                    .addOutgoingEgresses(FromFunction.EgressMessage.newBuilder()))
-                    .build();
-        }
-
-        public PortInfo runAndGetPortInfo() {
-            eventLoopGroup = new NioEventLoopGroup();
-            workerGroup = new NioEventLoopGroup();
-
-            try {
-                ServerBootstrap httpBootstrap = getServerBootstrap(getChannelInitializer());
-
-                ServerBootstrap httpsMutualTlsBootstrap =
-                        getServerBootstrap(
-                                getChannelInitializer(
-                                        loadKeyManagerForTlsServerA(),
-                                        loadTrustManagerForTlsServerA()));
-
-                ServerBootstrap httpsServerTlsBootstrap =
-                        getServerBootstrap(getChannelInitializer(loadKeyManagerForTlsServerA()));
-
-                int httpPort = randomFreePort();
-                httpBootstrap.bind(httpPort).sync();
-
-                int httpsMutualTlsPort = randomFreePort();
-                httpsMutualTlsBootstrap.bind(httpsMutualTlsPort).sync();
-
-                int httpsServerTlsOnlyPort = randomFreePort();
-                httpsServerTlsBootstrap.bind(httpsServerTlsOnlyPort).sync();
-
-                return new PortInfo(httpPort, httpsMutualTlsPort, httpsServerTlsOnlyPort);
-            } catch (Exception e) {
-                throw new IllegalStateException("Could not start a test netty server", e);
-            }
-        }
-
-        private ChannelInitializer<Channel> getChannelInitializer(
-                X509ExtendedKeyManager keyManager, X509ExtendedTrustManager trustManager) {
-            return getTlsEnabledInitializer(
-                    SslContextBuilder.forServer(keyManager).trustManager(trustManager),
-                    ClientAuth.REQUIRE);
-        }
-
-        private ChannelInitializer<Channel> getChannelInitializer(
-                X509ExtendedKeyManager keyManager) {
-            return getTlsEnabledInitializer(
-                    SslContextBuilder.forServer(keyManager), ClientAuth.NONE);
-        }
-
-        private ChannelInitializer<Channel> getChannelInitializer() {
-            return new ChannelInitializer<Channel>() {
-                @Override
-                protected void initChannel(Channel channel) {
-                    addStubResponseToThePipeline(channel.pipeline());
-                }
-            };
-        }
-
-        private ChannelInitializer<Channel> getTlsEnabledInitializer(
-                SslContextBuilder sslContextBuilder, ClientAuth clientAuth) {
-            return new ChannelInitializer<Channel>() {
-                @Override
-                protected void initChannel(Channel channel) throws IOException {
-                    ChannelPipeline pipeline = channel.pipeline();
-                    SslContext sslContext =
-                            sslContextBuilder
-                                    .sslProvider(SslProvider.JDK)
-                                    .clientAuth(clientAuth)
-                                    .build();
-                    pipeline.addLast(sslContext.newHandler(channel.alloc()));
-                    addStubResponseToThePipeline(pipeline);
-                }
-            };
-        }
-
-        private X509ExtendedTrustManager loadTrustManagerForTlsServerA() {
-            return PemUtils.loadTrustMaterial(
-                    openStreamOrThrow(
-                            ResourceLocator.findNamedResource("classpath:" + A_CA_CERTS_LOCATION)));
-        }
-
-        private X509ExtendedKeyManager loadKeyManagerForTlsServerA() {
-            return PemUtils.loadIdentityMaterial(
-                    openStreamOrThrow(
-                            ResourceLocator.findNamedResource(
-                                    "classpath:" + A_SIGNED_SERVER_CERT_LOCATION)),
-                    openStreamOrThrow(
-                            ResourceLocator.findNamedResource(
-                                    "classpath:" + A_SIGNED_SERVER_KEY_LOCATION)),
-                    A_SIGNED_SERVER_KEY_PASSWORD.toCharArray());
-        }
-
-        public void close() throws InterruptedException {
-            eventLoopGroup.shutdownGracefully().sync();
-            workerGroup.shutdownGracefully().sync();
-        }
-
-        private ServerBootstrap getServerBootstrap(ChannelInitializer<Channel> childHandler) {
-            return new ServerBootstrap()
-                    .group(eventLoopGroup, workerGroup)
-                    .channel(NioServerSocketChannel.class)
-                    .childHandler(childHandler)
-                    .option(ChannelOption.SO_BACKLOG, 128)
-                    .childOption(ChannelOption.SO_KEEPALIVE, true);
-        }
-
-        private void addStubResponseToThePipeline(ChannelPipeline pipeline) {
-            pipeline.addLast(new HttpServerCodec());
-            pipeline.addLast(new HttpObjectAggregator(Integer.MAX_VALUE));
-            pipeline.addLast(stubFromFunctionHandler());
-        }
-
-        private SimpleChannelInboundHandler<FullHttpRequest> stubFromFunctionHandler() {
-            return new SimpleChannelInboundHandler<FullHttpRequest>() {
-                @Override
-                protected void channelRead0(
-                        ChannelHandlerContext channelHandlerContext,
-                        FullHttpRequest fullHttpRequest) {
-                    ByteBuf content = Unpooled.copiedBuffer(getStubFromFunction().toByteArray());
-                    FullHttpResponse response =
-                            new DefaultFullHttpResponse(
-                                    HttpVersion.HTTP_1_1, HttpResponseStatus.OK, content);
-                    response.headers()
-                            .set(HttpHeaderNames.CONTENT_TYPE, "application/octet-stream");
-                    response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.readableBytes());
-                    channelHandlerContext.write(response);
-                    channelHandlerContext.flush();
-                }
-            };
-        }
-
-        private int randomFreePort() {
-            try (ServerSocket socket = new ServerSocket(0)) {
-                return socket.getLocalPort();
-            } catch (IOException e) {
-                throw new IllegalStateException(
-                        "No free ports available for the test netty service to use");
-            }
-        }
-
-        private SslContext buildSslContextOrThrow(SslContextBuilder sslContextBuilder) {
-            try {
-                return sslContextBuilder.build();
-            } catch (SSLException e) {
-                throw new IllegalStateException("Could not build the ssl context for a test", e);
-            }
-        }
+    private int randomFreePort() {
+      try (ServerSocket socket = new ServerSocket(0)) {
+        return socket.getLocalPort();
+      } catch (IOException e) {
+        throw new IllegalStateException("No free ports available for the test netty service to use");
+      }
     }
 
     public static class PortInfo {
-        private final int httpPort;
-        private final int httpsMutualTlsRequiredPort;
-        private final int httpsServerTlsOnlyPort;
+      private final int httpPort;
+      private final int httpsMutualTlsRequiredPort;
+      private final int httpsServerTlsOnlyPort;
 
-        public PortInfo(int httpPort, int httpsMutualTlsRequiredPort, int httpsServerTlsOnlyPort) {
-            this.httpPort = httpPort;
-            this.httpsMutualTlsRequiredPort = httpsMutualTlsRequiredPort;
-            this.httpsServerTlsOnlyPort = httpsServerTlsOnlyPort;
-        }
+      public PortInfo(int httpPort, int httpsMutualTlsRequiredPort, int httpsServerTlsOnlyPort) {
+        this.httpPort = httpPort;
+        this.httpsMutualTlsRequiredPort = httpsMutualTlsRequiredPort;
+        this.httpsServerTlsOnlyPort = httpsServerTlsOnlyPort;
+      }
 
-        public int getHttpPort() {
-            return httpPort;
-        }
+      public int getHttpPort() {
+        return httpPort;
+      }
 
-        public int getHttpsMutualTlsRequiredPort() {
-            return httpsMutualTlsRequiredPort;
-        }
+      public int getHttpsMutualTlsRequiredPort() {
+        return httpsMutualTlsRequiredPort;
+      }
 
-        public int getHttpsServerTlsOnlyPort() {
-            return httpsServerTlsOnlyPort;
-        }
+      public int getHttpsServerTlsOnlyPort() {
+        return httpsServerTlsOnlyPort;
+      }
     }
 
-    protected static ToFunctionRequestSummary getStubRequestSummary() {
-        return new ToFunctionRequestSummary(
-                new Address(new FunctionType("ns", "type"), "id"), 1, 0, 1);
+    public static ToFunctionRequestSummary getStubRequestSummary() {
+      return new ToFunctionRequestSummary(new Address(new FunctionType("ns", "type"), "id"), 1, 0, 1);
     }
 
-    protected static ToFunction getEmptyToFunction() {
-        return ToFunction.newBuilder().build();
+    public static ToFunction getEmptyToFunction() {
+      return ToFunction.newBuilder().build();
     }
 
-    protected static RemoteInvocationMetrics getFakeMetrics() {
-        return new RemoteInvocationMetrics() {
-            @Override
-            public void remoteInvocationFailures() {}
+    public static RemoteInvocationMetrics getFakeMetrics() {
+      return new RemoteInvocationMetrics() {
+        @Override
+        public void remoteInvocationFailures() {
+        }
 
-            @Override
-            public void remoteInvocationLatency(long elapsed) {}
-        };
+        @Override
+        public void remoteInvocationLatency(long elapsed) {
+        }
+      };
     }
+  }
 }

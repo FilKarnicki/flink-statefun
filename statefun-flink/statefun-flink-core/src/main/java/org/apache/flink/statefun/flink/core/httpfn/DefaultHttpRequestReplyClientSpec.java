@@ -32,178 +32,166 @@ import java.util.Optional;
 
 public final class DefaultHttpRequestReplyClientSpec {
 
-    @JsonProperty("timeouts")
-    private Timeouts timeouts = new Timeouts();
+  @JsonProperty("timeouts")
+  private Timeouts timeouts = new Timeouts();
 
-    @JsonProperty("trust_cacerts")
-    private String trustCaCerts;
+  @JsonProperty("trust_cacerts")
+  private String trustCaCerts;
 
-    @JsonProperty("client_certs")
-    private String clientCerts;
+  @JsonProperty("client_certs")
+  private String clientCerts;
 
-    @JsonProperty("client_key")
-    private String clientKey;
+  @JsonProperty("client_key")
+  private String clientKey;
 
-    @JsonProperty("client_key_password")
-    private String clientKeyPassword;
+  @JsonProperty("client_key_password")
+  private String clientKeyPassword;
 
-    @JsonSetter("timeouts")
-    public void setTimeouts(Timeouts timeouts) {
-        validateTimeouts(
-                timeouts.callTimeout,
-                timeouts.connectTimeout,
-                timeouts.readTimeout,
-                timeouts.writeTimeout);
-        this.timeouts = timeouts;
+  @JsonSetter("timeouts")
+  public void setTimeouts(Timeouts timeouts) {
+    validateTimeouts(timeouts.callTimeout, timeouts.connectTimeout, timeouts.readTimeout, timeouts.writeTimeout);
+    this.timeouts = timeouts;
+  }
+
+  public Timeouts getTimeouts() {
+    return timeouts;
+  }
+
+  public String getTrustCaCerts() {
+    return trustCaCerts;
+  }
+
+  public void setTrustCaCerts(String trustCaCerts) {
+    this.trustCaCerts = trustCaCerts;
+  }
+
+  public String getClientCerts() {
+    return clientCerts;
+  }
+
+  public void setClientCerts(String clientCerts) {
+    this.clientCerts = clientCerts;
+  }
+
+  public String getClientKey() {
+    return clientKey;
+  }
+
+  public void setClientKey(String clientKey) {
+    this.clientKey = clientKey;
+  }
+
+  public String getClientKeyPassword() {
+    return clientKeyPassword;
+  }
+
+  public void setClientKeyPassword(String clientKeyPassword) {
+    this.clientKeyPassword = clientKeyPassword;
+  }
+
+  public Optional<String> getTrustCaCertsOptional() {
+    return Optional.ofNullable(trustCaCerts);
+  }
+
+  public Optional<String> getClientCertsOptional() {
+    return Optional.ofNullable(clientCerts);
+  }
+
+  public Optional<String> getClientKeyOptional() {
+    return Optional.ofNullable(clientKey);
+  }
+
+  public Optional<String> getClientKeyPasswordOptional() {
+    return Optional.ofNullable(clientKeyPassword);
+  }
+
+  public ObjectNode toJson(ObjectMapper objectMapper) {
+    return objectMapper.valueToTree(this);
+  }
+
+  static DefaultHttpRequestReplyClientSpec fromJson(ObjectMapper objectMapper, JsonNode jsonNode) throws JsonProcessingException {
+    return objectMapper.treeToValue(jsonNode, DefaultHttpRequestReplyClientSpec.class);
+  }
+
+  private static void validateTimeouts(Duration callTimeout, Duration connectTimeout, Duration readTimeout, Duration writeTimeout) {
+
+    if (connectTimeout.compareTo(callTimeout) > 0) {
+      throw new IllegalArgumentException("Connect timeout cannot be larger than request timeout.");
     }
 
-    public Timeouts getTimeouts() {
-        return timeouts;
+    if (readTimeout.compareTo(callTimeout) > 0) {
+      throw new IllegalArgumentException("Read timeout cannot be larger than request timeout.");
     }
 
-    public String getTrustCaCerts() {
-        return trustCaCerts;
+    if (writeTimeout.compareTo(callTimeout) > 0) {
+      throw new IllegalArgumentException("Write timeout cannot be larger than request timeout.");
+    }
+  }
+
+  public static final class Timeouts {
+
+    // default spec values
+    @VisibleForTesting
+    public static final Duration DEFAULT_HTTP_TIMEOUT = Duration.ofMinutes(1);
+
+    @VisibleForTesting
+    public static final Duration DEFAULT_HTTP_CONNECT_TIMEOUT = Duration.ofSeconds(10);
+
+    @VisibleForTesting
+    public static final Duration DEFAULT_HTTP_READ_TIMEOUT = Duration.ofSeconds(10);
+
+    @VisibleForTesting
+    public static final Duration DEFAULT_HTTP_WRITE_TIMEOUT = Duration.ofSeconds(10);
+
+    // spec values
+    private Duration callTimeout = DEFAULT_HTTP_TIMEOUT;
+    private Duration connectTimeout = DEFAULT_HTTP_CONNECT_TIMEOUT;
+    private Duration readTimeout = DEFAULT_HTTP_READ_TIMEOUT;
+    private Duration writeTimeout = DEFAULT_HTTP_WRITE_TIMEOUT;
+
+    @JsonSetter("call")
+    public void setCallTimeout(Duration callTimeout) {
+      this.callTimeout = requireNonZeroDuration(callTimeout);
     }
 
-    public void setTrustCaCerts(String trustCaCerts) {
-        this.trustCaCerts = trustCaCerts;
+    @JsonSetter("connect")
+    public void setConnectTimeout(Duration connectTimeout) {
+      this.connectTimeout = requireNonZeroDuration(connectTimeout);
     }
 
-    public String getClientCerts() {
-        return clientCerts;
+    @JsonSetter("read")
+    public void setReadTimeout(Duration readTimeout) {
+      this.readTimeout = requireNonZeroDuration(readTimeout);
     }
 
-    public void setClientCerts(String clientCerts) {
-        this.clientCerts = clientCerts;
+    @JsonSetter("write")
+    public void setWriteTimeout(Duration writeTimeout) {
+      this.writeTimeout = requireNonZeroDuration(writeTimeout);
     }
 
-    public String getClientKey() {
-        return clientKey;
+    public Duration getCallTimeout() {
+      return callTimeout;
     }
 
-    public void setClientKey(String clientKey) {
-        this.clientKey = clientKey;
+    public Duration getConnectTimeout() {
+      return connectTimeout;
     }
 
-    public String getClientKeyPassword() {
-        return clientKeyPassword;
+    public Duration getReadTimeout() {
+      return readTimeout;
     }
 
-    public void setClientKeyPassword(String clientKeyPassword) {
-        this.clientKeyPassword = clientKeyPassword;
+    public Duration getWriteTimeout() {
+      return writeTimeout;
     }
 
-    public Optional<String> getTrustCaCertsOptional() {
-        return Optional.ofNullable(trustCaCerts);
+    private static Duration requireNonZeroDuration(Duration duration) {
+      Objects.requireNonNull(duration);
+      if (duration.equals(Duration.ZERO)) {
+        throw new IllegalArgumentException("Timeout durations must be larger than 0.");
+      }
+
+      return duration;
     }
-
-    public Optional<String> getClientCertsOptional() {
-        return Optional.ofNullable(clientCerts);
-    }
-
-    public Optional<String> getClientKeyOptional() {
-        return Optional.ofNullable(clientKey);
-    }
-
-    public Optional<String> getClientKeyPasswordOptional() {
-        return Optional.ofNullable(clientKeyPassword);
-    }
-
-    public ObjectNode toJson(ObjectMapper objectMapper) {
-        return objectMapper.valueToTree(this);
-    }
-
-    static DefaultHttpRequestReplyClientSpec fromJson(ObjectMapper objectMapper, JsonNode jsonNode)
-            throws JsonProcessingException {
-        return objectMapper.treeToValue(jsonNode, DefaultHttpRequestReplyClientSpec.class);
-    }
-
-    private static void validateTimeouts(
-            Duration callTimeout,
-            Duration connectTimeout,
-            Duration readTimeout,
-            Duration writeTimeout) {
-
-        if (connectTimeout.compareTo(callTimeout) > 0) {
-            throw new IllegalArgumentException(
-                    "Connect timeout cannot be larger than request timeout.");
-        }
-
-        if (readTimeout.compareTo(callTimeout) > 0) {
-            throw new IllegalArgumentException(
-                    "Read timeout cannot be larger than request timeout.");
-        }
-
-        if (writeTimeout.compareTo(callTimeout) > 0) {
-            throw new IllegalArgumentException(
-                    "Write timeout cannot be larger than request timeout.");
-        }
-    }
-
-    public static final class Timeouts {
-
-        // default spec values
-        @VisibleForTesting
-        public static final Duration DEFAULT_HTTP_TIMEOUT = Duration.ofMinutes(1);
-
-        @VisibleForTesting
-        public static final Duration DEFAULT_HTTP_CONNECT_TIMEOUT = Duration.ofSeconds(10);
-
-        @VisibleForTesting
-        public static final Duration DEFAULT_HTTP_READ_TIMEOUT = Duration.ofSeconds(10);
-
-        @VisibleForTesting
-        public static final Duration DEFAULT_HTTP_WRITE_TIMEOUT = Duration.ofSeconds(10);
-
-        // spec values
-        private Duration callTimeout = DEFAULT_HTTP_TIMEOUT;
-        private Duration connectTimeout = DEFAULT_HTTP_CONNECT_TIMEOUT;
-        private Duration readTimeout = DEFAULT_HTTP_READ_TIMEOUT;
-        private Duration writeTimeout = DEFAULT_HTTP_WRITE_TIMEOUT;
-
-        @JsonSetter("call")
-        public void setCallTimeout(Duration callTimeout) {
-            this.callTimeout = requireNonZeroDuration(callTimeout);
-        }
-
-        @JsonSetter("connect")
-        public void setConnectTimeout(Duration connectTimeout) {
-            this.connectTimeout = requireNonZeroDuration(connectTimeout);
-        }
-
-        @JsonSetter("read")
-        public void setReadTimeout(Duration readTimeout) {
-            this.readTimeout = requireNonZeroDuration(readTimeout);
-        }
-
-        @JsonSetter("write")
-        public void setWriteTimeout(Duration writeTimeout) {
-            this.writeTimeout = requireNonZeroDuration(writeTimeout);
-        }
-
-        public Duration getCallTimeout() {
-            return callTimeout;
-        }
-
-        public Duration getConnectTimeout() {
-            return connectTimeout;
-        }
-
-        public Duration getReadTimeout() {
-            return readTimeout;
-        }
-
-        public Duration getWriteTimeout() {
-            return writeTimeout;
-        }
-
-        private static Duration requireNonZeroDuration(Duration duration) {
-            Objects.requireNonNull(duration);
-            if (duration.equals(Duration.ZERO)) {
-                throw new IllegalArgumentException("Timeout durations must be larger than 0.");
-            }
-
-            return duration;
-        }
-    }
+  }
 }
