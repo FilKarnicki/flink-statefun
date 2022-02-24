@@ -44,6 +44,8 @@ import javax.net.ssl.X509ExtendedKeyManager;
 import javax.net.ssl.X509ExtendedTrustManager;
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 
 import static org.apache.flink.statefun.flink.core.TestUtils.openStreamOrThrow;
 import static org.junit.Assert.assertFalse;
@@ -66,78 +68,95 @@ public abstract class TransportClientTest {
     private static final String TLS_FAILURE_MESSAGE = "Unexpected TLS connection test result";
 
     @Test
-    public void callingTestHttpServiceShouldSucceed() throws IOException {
+    public void callingTestHttpServiceShouldSucceed()
+            throws IOException, ExecutionException, InterruptedException, TimeoutException {
         assertTrue(TLS_FAILURE_MESSAGE, call());
     }
 
     @Test
     public void callingTestHttpServiceUsingHttpsWithoutCaCertsShouldUseDefaultTruststore()
-            throws IOException {
+            throws IOException, ExecutionException, InterruptedException, TimeoutException {
         assertTrue(TLS_FAILURE_MESSAGE, callHttpsWithoutAnyTlsSetup());
     }
 
     @Test
-    public void callingTestHttpServiceUsingHttpsWithOnlyClientSetupShouldUseDefaultTruststore()
-            throws IOException {
+    public void
+            callingTestHttpServiceUsingHttpsWithOnlyClientSetupShouldUseDefaultTruststoreAndSucceed()
+                    throws IOException, ExecutionException, InterruptedException, TimeoutException {
         assertTrue(TLS_FAILURE_MESSAGE, callHttpsWithOnlyClientSetup());
     }
 
     @Test
-    public void callingTestHttpServiceWithTlsFromPathShouldSucceed() throws IOException {
+    public void callingTestHttpServiceWithTlsFromPathShouldSucceed()
+            throws IOException, ExecutionException, InterruptedException, TimeoutException {
         assertTrue(TLS_FAILURE_MESSAGE, callWithTlsFromPath());
     }
 
     @Test
-    public void callingTestHttpServiceWithTlsFromClasspathShouldSucceed() throws IOException {
+    public void callingTestHttpServiceWithTlsFromClasspathShouldSucceed()
+            throws IOException, ExecutionException, InterruptedException, TimeoutException {
         assertTrue(TLS_FAILURE_MESSAGE, callWithTlsFromClasspath());
     }
 
     @Test
     public void callingTestHttpServiceWithTlsUsingKeyWithoutPasswordShouldSucceed()
-            throws IOException {
+            throws IOException, ExecutionException, InterruptedException, TimeoutException {
         assertTrue(TLS_FAILURE_MESSAGE, callWithTlsFromClasspathWithoutKeyPassword());
     }
 
     @Test
-    public void callingTestHttpServiceWithJustServerSideTlsShouldSucceed() throws IOException {
+    public void callingTestHttpServiceWithJustServerSideTlsShouldSucceed()
+            throws IOException, ExecutionException, InterruptedException, TimeoutException {
         assertTrue(TLS_FAILURE_MESSAGE, callWithJustServerSideTls());
     }
 
     @Test(expected = SSLException.class)
-    public void callingTestHttpServiceWithUntrustedTlsClientShouldFail() throws IOException {
+    public void callingTestHttpServiceWithUntrustedTlsClientShouldFail()
+            throws IOException, ExecutionException, InterruptedException, TimeoutException {
         assertFalse(callWithUntrustedTlsClient());
     }
 
     @Test(expected = SSLException.class)
-    public void callingAnUntrustedTestHttpServiceWithTlsClientShouldFail() throws IOException {
+    public void callingAnUntrustedTestHttpServiceWithTlsClientShouldFail()
+            throws IOException, ExecutionException, InterruptedException, TimeoutException {
         assertFalse(callUntrustedServerWithTlsClient());
     }
 
     @Test(expected = SSLException.class)
     public void callingTestHttpServiceWhereTlsRequiredButNoCertGivenShouldFail()
-            throws IOException {
+            throws IOException, ExecutionException, InterruptedException, TimeoutException {
         assertFalse(callWithNoCertGivenButRequired());
     }
 
-    public abstract boolean call() throws IOException;
+    public abstract boolean call()
+            throws IOException, ExecutionException, InterruptedException, TimeoutException;
 
-    protected abstract boolean callHttpsWithoutAnyTlsSetup() throws IOException;
+    protected abstract boolean callHttpsWithoutAnyTlsSetup()
+            throws IOException, ExecutionException, InterruptedException, TimeoutException;
 
-    protected abstract boolean callHttpsWithOnlyClientSetup() throws IOException;
+    protected abstract boolean callHttpsWithOnlyClientSetup()
+            throws IOException, ExecutionException, InterruptedException, TimeoutException;
 
-    public abstract boolean callWithTlsFromPath() throws IOException;
+    public abstract boolean callWithTlsFromPath()
+            throws IOException, ExecutionException, InterruptedException, TimeoutException;
 
-    public abstract boolean callWithTlsFromClasspath() throws IOException;
+    public abstract boolean callWithTlsFromClasspath()
+            throws IOException, ExecutionException, InterruptedException, TimeoutException;
 
-    public abstract boolean callWithTlsFromClasspathWithoutKeyPassword() throws IOException;
+    public abstract boolean callWithTlsFromClasspathWithoutKeyPassword()
+            throws IOException, ExecutionException, InterruptedException, TimeoutException;
 
-    public abstract boolean callWithUntrustedTlsClient() throws IOException;
+    public abstract boolean callWithUntrustedTlsClient()
+            throws IOException, ExecutionException, InterruptedException, TimeoutException;
 
-    public abstract boolean callUntrustedServerWithTlsClient() throws IOException;
+    public abstract boolean callUntrustedServerWithTlsClient()
+            throws IOException, ExecutionException, InterruptedException, TimeoutException;
 
-    public abstract boolean callWithNoCertGivenButRequired() throws IOException;
+    public abstract boolean callWithNoCertGivenButRequired()
+            throws IOException, ExecutionException, InterruptedException, TimeoutException;
 
-    public abstract boolean callWithJustServerSideTls() throws IOException;
+    public abstract boolean callWithJustServerSideTls()
+            throws IOException, ExecutionException, InterruptedException, TimeoutException;
 
     public static class FromFunctionNettyTestServer {
         private EventLoopGroup eventLoopGroup;
@@ -168,7 +187,7 @@ public abstract class TransportClientTest {
                         getServerBootstrap(
                                 getChannelInitializer(
                                         loadKeyManagerForTlsServerA(),
-                                        loadTrustManager("classpath:" + A_CA_CERTS_LOCATION)));
+                                        loadTrustManagerForTlsServerA()));
 
                 ServerBootstrap httpsServerTlsBootstrap =
                         getServerBootstrap(getChannelInitializer(loadKeyManagerForTlsServerA()));
@@ -227,9 +246,10 @@ public abstract class TransportClientTest {
             };
         }
 
-        private X509ExtendedTrustManager loadTrustManager(String trustManagerLocation) {
+        private X509ExtendedTrustManager loadTrustManagerForTlsServerA() {
             return PemUtils.loadTrustMaterial(
-                    openStreamOrThrow(ResourceLocator.findNamedResource(trustManagerLocation)));
+                    openStreamOrThrow(
+                            ResourceLocator.findNamedResource("classpath:" + A_CA_CERTS_LOCATION)));
         }
 
         private X509ExtendedKeyManager loadKeyManagerForTlsServerA() {

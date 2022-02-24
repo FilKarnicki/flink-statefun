@@ -19,6 +19,7 @@ package org.apache.flink.statefun.flink.core.nettyclient;
 
 import org.apache.flink.shaded.netty4.io.netty.bootstrap.Bootstrap;
 import org.apache.flink.shaded.netty4.io.netty.channel.Channel;
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelDuplexHandler;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelOption;
 import org.apache.flink.shaded.netty4.io.netty.channel.EventLoop;
 import org.apache.flink.shaded.netty4.io.netty.channel.pool.ChannelHealthChecker;
@@ -52,6 +53,14 @@ final class NettyClient implements RequestReplyClient, NettyClientService {
 
     public static NettyClient from(
             NettySharedResources shared, NettyRequestReplySpec spec, URI endpointUrl) {
+        return from(shared, spec, endpointUrl, new NettyRequestReplyHandler());
+    }
+
+    static NettyClient from(
+            NettySharedResources shared,
+            NettyRequestReplySpec spec,
+            URI endpointUrl,
+            ChannelDuplexHandler nettyRequestReplyHandler) {
         String s = "";
         Endpoint endpoint = new Endpoint(endpointUrl);
         long totalRequestBudgetInNanos = spec.callTimeout.toNanos();
@@ -70,7 +79,8 @@ final class NettyClient implements RequestReplyClient, NettyClientService {
                         sslContext,
                         spec,
                         endpoint.serviceAddress().getHostString(),
-                        endpoint.serviceAddress().getPort());
+                        endpoint.serviceAddress().getPort(),
+                        nettyRequestReplyHandler);
         // setup a fixed capacity channel pool
         FixedChannelPool pool =
                 new FixedChannelPool(
