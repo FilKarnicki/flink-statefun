@@ -2,32 +2,28 @@
 
 There are three certificate authorities: `a`, `b` and `c`. Each sign a client cert and a server cert.
 
-There are two sets of client cert and key files
+There are three sets of client cert and key files
 
 1. `a_client.crt` - signed by CA `a`, and its private key `a_client.key`, the latter of which has password of `test`
 2. `b_client.crt` - signed by CA `b`, and its private key `b_client.key`, the latter of which has password of `test`
-3. `c_client.crt` - signed by CA `c`, and its private key `c_client.key`, the latter of which does not require a
-   password
+3. `c_client.crt` - signed by CA `c`, and its private key `c_client.key`, the latter of which does not require a password
 
-4. There are two sets of server cert and key files
+There is one server cert and key file
 
-5. `a_server.crt` - signed by CA `a`, and its private key `a_server.key`, the latter of which has password of `test`
-6. `b_server.crt` - signed by CA `b`, and its private key `b_server.key`, the latter of which has password of `test`
+1. `a_server.crt` - signed by CA `a`, and its private key `a_server.key`, the latter of which has password of `test`
 
 There are two trusted CA files
 
 1. `a_caCerts.pem` - contains CAs `a` and `c`
 2. `b_caCerts.pem` contains CAs `b` and `c`
 
-The idea is that a test server `a` will be launched with a truststore containing CAs `a` and `c`, and a test server `b`
-will be launched with a truststore containing CAs `b` and `c`.
+A test server `a` is launched with a truststore containing CAs `a` and `c`
 
 | client | server | connection accepted |
 |--------|--------|---------------------|
 | a      | a      | yes                 |
-| b      | b      | yes                 |
-| a      | b      | no                  |
 | b      | a      | no                  |
+| c      | a      | yes                 |
 
 # Steps for re-creating the files in this folder
 
@@ -119,18 +115,8 @@ openssl req -new -key b_client.key -out b_client.csr -passin pass:test
 ```
 
 ```shell
-openssl genrsa -des3 -passout pass:test -out b_server.key 2048
-openssl req -new -key b_server.key -out b_server.csr -passin pass:test
-```
-
-```shell
 openssl genrsa -passout pass:test -out c_client.key 2048
 openssl req -new -key c_client.key -out c_client.csr -passin pass:test
-```
-
-```shell
-openssl genrsa -des3 -passout pass:test -out c_server.key 2048
-openssl req -new -key c_server.key -out c_server.csr -passin pass:test 
 ```
 
 ## 4. create an extension config for servers
@@ -161,8 +147,8 @@ output:
     Getting CA Private Key
 ```
 
-same for other clients and servers (note that clients `b` and `c` are signed ba CA `b` and `c` respectively, and that
-the additional -extfile server.ext for servers)
+same for other clients and servers (note that clients `b` and `c` are signed ba CA `b` and `c` respectively, and that the additional -extfile server.ext for
+servers)
 
 ```shell
 openssl x509 -req -in b_client.csr -passin pass:test -CA b_ca.pem -CAkey b_ca.key -CAcreateserial -out b_client.crt -days 36500 -sha256
@@ -174,14 +160,6 @@ openssl x509 -req -in c_client.csr -passin pass:test -CA c_ca.pem -CAkey c_ca.ke
 
 ```shell
 openssl x509 -req -in a_server.csr -passin pass:test -CA a_ca.pem -CAkey a_ca.key -CAcreateserial -out a_server.crt -days 36500 -sha256 -extfile server.ext
-```
-
-```shell
-openssl x509 -req -in b_server.csr -passin pass:test -CA b_ca.pem -CAkey b_ca.key -CAcreateserial -out b_server.crt -days 36500 -sha256 -extfile server.ext
-```
-
-```shell
-openssl x509 -req -in c_server.csr -passin pass:test -CA c_ca.pem -CAkey c_ca.key -CAcreateserial -out c_server.crt -days 36500 -sha256 -extfile server.ext
 ```
 
 ## 6. create final files

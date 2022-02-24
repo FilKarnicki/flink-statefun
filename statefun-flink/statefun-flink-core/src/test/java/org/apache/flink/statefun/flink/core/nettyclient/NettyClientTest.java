@@ -18,17 +18,28 @@
 
 package org.apache.flink.statefun.flink.core.nettyclient;
 
+import org.apache.flink.shaded.netty4.io.netty.buffer.ByteBuf;
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelDuplexHandler;
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelPromise;
+import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.*;
 import org.apache.flink.statefun.flink.core.httpfn.TransportClientTest;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
 import java.net.URI;
+import java.net.URL;
 import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+
+import static org.apache.flink.statefun.flink.core.nettyclient.NettyProtobuf.serializeProtobuf;
+import static org.junit.Assert.assertNotNull;
 
 /** This class runs @Test scenarios defined in the parent - {@link TransportClientTest} */
 public class NettyClientTest extends TransportClientTest {
     private static FromFunctionNettyTestServer testServer;
-    private static final Duration ONE_MINUTE = Duration.ofMinutes(1L);
     private static PortInfo portInfo;
 
     @BeforeClass
@@ -43,72 +54,231 @@ public class NettyClientTest extends TransportClientTest {
     }
 
     @Override
-    public boolean call() {
+    public boolean call() throws Throwable {
+        return callUsingStubsAndCheckSuccess(
+                createNettyClient(createHttpSpec(), "http", portInfo.getHttpPort()));
+    }
 
+    @Override
+    public boolean callWithTlsFromClasspath() throws Throwable {
+        return callUsingStubsAndCheckSuccess(
+                createNettyClient(
+                        createSpec(
+                                "classpath:" + A_CA_CERTS_LOCATION,
+                                "classpath:" + A_SIGNED_CLIENT_CERT_LOCATION,
+                                "classpath:" + A_SIGNED_CLIENT_KEY_LOCATION,
+                                A_SIGNED_CLIENT_KEY_PASSWORD),
+                        "https",
+                        portInfo.getHttpsMutualTlsRequiredPort()));
+    }
+
+    @Override
+    public boolean callWithTlsFromClasspathWithoutKeyPassword() throws Throwable {
+        return callUsingStubsAndCheckSuccess(
+                createNettyClient(
+                        createSpec(
+                                "classpath:" + A_CA_CERTS_LOCATION,
+                                "classpath:" + C_SIGNED_CLIENT_CERT_LOCATION,
+                                "classpath:" + C_SIGNED_CLIENT_KEY_LOCATION,
+                                null),
+                        "https",
+                        portInfo.getHttpsMutualTlsRequiredPort()));
+    }
+
+    @Override
+    public boolean callWithTlsFromPath() throws Throwable {
+        URL caCertsUrl = getClass().getClassLoader().getResource(A_CA_CERTS_LOCATION);
+        URL clientCertUrl = getClass().getClassLoader().getResource(A_SIGNED_CLIENT_CERT_LOCATION);
+        URL clientKeyUrl = getClass().getClassLoader().getResource(A_SIGNED_CLIENT_KEY_LOCATION);
+        assertNotNull(caCertsUrl);
+        assertNotNull(clientCertUrl);
+        assertNotNull(clientKeyUrl);
+
+        return callUsingStubsAndCheckSuccess(
+                createNettyClient(
+                        createSpec(
+                                caCertsUrl.getPath(),
+                                clientCertUrl.getPath(),
+                                clientKeyUrl.getPath(),
+                                A_SIGNED_CLIENT_KEY_PASSWORD),
+                        "https",
+                        portInfo.getHttpsMutualTlsRequiredPort()));
+    }
+
+    @Override
+    public boolean callHttpsWithoutAnyTlsSetup() throws Throwable {
+        return callUsingStubsAndCheckSuccess(
+                createNettyClient(createHttpSpec(), "https", portInfo.getHttpsServerTlsOnlyPort()));
+    }
+
+    @Override
+    protected boolean callHttpsWithOnlyClientSetup() throws Throwable {
+        return callUsingStubsAndCheckSuccess(
+                createNettyClient(
+                        createSpec(
+                                null,
+                                "classpath:" + A_SIGNED_CLIENT_CERT_LOCATION,
+                                "classpath:" + A_SIGNED_CLIENT_KEY_LOCATION,
+                                A_SIGNED_CLIENT_KEY_PASSWORD),
+                        "https",
+                        portInfo.getHttpsMutualTlsRequiredPort()));
+    }
+
+    @Override
+    public boolean callWithUntrustedTlsClient() throws Throwable {
+        return callUsingStubsAndCheckSuccess(
+                createNettyClient(
+                        createSpec(
+                                "classpath:" + A_CA_CERTS_LOCATION,
+                                "classpath:" + B_SIGNED_CLIENT_CERT_LOCATION,
+                                "classpath:" + B_SIGNED_CLIENT_KEY_LOCATION,
+                                B_SIGNED_CLIENT_KEY_PASSWORD),
+                        "https",
+                        portInfo.getHttpsMutualTlsRequiredPort()));
+    }
+
+    @Override
+    public boolean callUntrustedServerWithTlsClient() throws Throwable {
+        return callUsingStubsAndCheckSuccess(
+                createNettyClient(
+                        createSpec(
+                                "classpath:" + B_CA_CERTS_LOCATION,
+                                "classpath:" + A_SIGNED_CLIENT_CERT_LOCATION,
+                                "classpath:" + A_SIGNED_CLIENT_KEY_LOCATION,
+                                A_SIGNED_CLIENT_KEY_PASSWORD),
+                        "https",
+                        portInfo.getHttpsMutualTlsRequiredPort()));
+    }
+
+    @Override
+    public boolean callWithNoCertGivenButRequired() throws Throwable {
+        return callUsingStubsAndCheckSuccess(
+                createNettyClient(
+                        createSpec("classpath:" + A_CA_CERTS_LOCATION, null, null, null),
+                        "https",
+                        portInfo.getHttpsMutualTlsRequiredPort()));
+    }
+
+    @Override
+    public boolean callWithJustServerSideTls() throws Throwable {
+        return callUsingStubsAndCheckSuccess(
+                createNettyClient(
+                        createSpec("classpath:" + A_CA_CERTS_LOCATION, null, null, null),
+                        "https",
+                        portInfo.getHttpsServerTlsOnlyPort()));
+    }
+
+    private NettyClientWithResultStatusCodeFuture createNettyClient(
+            NettyRequestReplySpec spec, String protocol, int port) {
+        CompletableFuture<Integer> statusCodeFuture = new CompletableFuture<>();
         NettyClient nettyClient =
                 NettyClient.from(
                         new NettySharedResources(),
-                        new NettyRequestReplySpec(
-                                ONE_MINUTE,
-                                ONE_MINUTE,
-                                ONE_MINUTE,
-                                1,
-                                128,
-                                null,
-                                null,
-                                null,
-                                null,
-                                new NettyRequestReplySpec.Timeouts()),
-                        URI.create("http://localhost:" + portInfo.getHttpPort()));
-        nettyClient.call(
-                getStubRequestSummary(),
-                getFakeMetrics(),
-                getEmptyToFunction()); // .get(5, TimeUnit.SECONDS);
-        return false;
+                        spec,
+                        URI.create(String.format("%s://localhost:%s", protocol, port)),
+                        new ChannelDuplexHandler() {
+                            @Override
+                            public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause)
+                                    throws Exception {
+                                statusCodeFuture.completeExceptionally(cause);
+                                super.exceptionCaught(ctx, cause);
+                            }
+
+                            @Override
+                            public void channelRead(ChannelHandlerContext ctx, Object msg)
+                                    throws Exception {
+                                final FullHttpResponse response =
+                                        (msg instanceof FullHttpResponse)
+                                                ? (FullHttpResponse) msg
+                                                : null;
+                                if (response != null) {
+                                    statusCodeFuture.complete(response.status().code());
+                                } else {
+                                    statusCodeFuture.completeExceptionally(
+                                            new IllegalStateException(
+                                                    "the object received by the test is not a FullHttpResponse"));
+                                }
+                                super.channelRead(ctx, msg);
+                            }
+
+                            @Override
+                            public void write(
+                                    ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
+                                final NettyRequest request = (NettyRequest) msg;
+                                final ByteBuf bodyBuf =
+                                        serializeProtobuf(
+                                                ctx.channel().alloc()::buffer,
+                                                request.toFunction());
+                                DefaultFullHttpRequest http =
+                                        new DefaultFullHttpRequest(
+                                                HttpVersion.HTTP_1_1,
+                                                HttpMethod.POST,
+                                                request.uri(),
+                                                bodyBuf,
+                                                new DefaultHttpHeaders(),
+                                                NettyHeaders.EMPTY);
+                                ctx.writeAndFlush(http);
+                            }
+                        });
+
+        return new NettyClientWithResultStatusCodeFuture(nettyClient, statusCodeFuture);
     }
 
-    @Override
-    public boolean callHttpsWithoutAnyTlsSetup() {
-        return false;
+    private NettyRequestReplySpec createHttpSpec() {
+        return createSpec(null, null, null, null);
     }
 
-    @Override
-    protected boolean callHttpsWithOnlyClientSetup() {
-        return false;
+    private NettyRequestReplySpec createSpec(
+            String trustedCaCerts, String clientCerts, String clientKey, String clientKeyPassword) {
+        return new NettyRequestReplySpec(
+                Duration.ofMinutes(1L),
+                Duration.ofMinutes(1L),
+                Duration.ofMinutes(1L),
+                1,
+                128,
+                trustedCaCerts,
+                clientCerts,
+                clientKey,
+                clientKeyPassword,
+                new NettyRequestReplySpec.Timeouts());
     }
 
-    @Override
-    public boolean callWithTlsFromPath() {
-        return false;
+    private Boolean callUsingStubsAndCheckSuccess(
+            NettyClientWithResultStatusCodeFuture nettyClientAndStatusCodeFuture) throws Throwable {
+
+        NettyRequest nettyRequest =
+                new NettyRequest(
+                        nettyClientAndStatusCodeFuture.nettyClient,
+                        getFakeMetrics(),
+                        getStubRequestSummary(),
+                        getEmptyToFunction());
+
+        nettyRequest.start();
+
+        try {
+            return nettyClientAndStatusCodeFuture.resultStatusCodeFuture.get(5, TimeUnit.SECONDS)
+                    == 200;
+        } catch (ExecutionException e) {
+            throw e.getCause().getCause();
+        }
     }
 
-    @Override
-    public boolean callWithTlsFromClasspath() {
-        return false;
-    }
+    private static class NettyClientWithResultStatusCodeFuture {
+        private final NettyClient nettyClient;
+        private final CompletableFuture<Integer> resultStatusCodeFuture;
 
-    @Override
-    public boolean callWithTlsFromClasspathWithoutKeyPassword() {
-        return false;
-    }
+        public NettyClientWithResultStatusCodeFuture(
+                NettyClient nettyClient, CompletableFuture<Integer> resultStatusCodeFuture) {
+            this.nettyClient = nettyClient;
+            this.resultStatusCodeFuture = resultStatusCodeFuture;
+        }
 
-    @Override
-    public boolean callWithUntrustedTlsClient() {
-        return false;
-    }
+        public NettyClient getNettyClient() {
+            return nettyClient;
+        }
 
-    @Override
-    public boolean callUntrustedServerWithTlsClient() {
-        return false;
-    }
-
-    @Override
-    public boolean callWithNoCertGivenButRequired() {
-        return false;
-    }
-
-    @Override
-    public boolean callWithJustServerSideTls() {
-        return false;
+        public CompletableFuture<Integer> getResultStatusCodeFuture() {
+            return resultStatusCodeFuture;
+        }
     }
 }

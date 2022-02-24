@@ -107,16 +107,32 @@ public final class NettyRequestReplySpec {
         return trustedCaCerts;
     }
 
+    public Optional<String> getTrustedCaCertsOptional() {
+        return Optional.ofNullable(trustedCaCerts);
+    }
+
     public String getClientCerts() {
         return clientCerts;
+    }
+
+    public Optional<String> getClientCertsOptional() {
+        return Optional.ofNullable(clientCerts);
     }
 
     public String getClientKey() {
         return clientKey;
     }
 
+    public Optional<String> getClientKeyOptional() {
+        return Optional.ofNullable(clientKey);
+    }
+
     public String getClientKeyPassword() {
         return clientKeyPassword;
+    }
+
+    public Optional<String> getClientKeyPasswordOptional() {
+        return Optional.ofNullable(clientKeyPassword);
     }
 
     /**

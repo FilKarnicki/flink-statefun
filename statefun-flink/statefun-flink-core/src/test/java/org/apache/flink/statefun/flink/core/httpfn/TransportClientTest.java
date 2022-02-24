@@ -51,93 +51,93 @@ import static org.junit.Assert.assertTrue;
 
 public abstract class TransportClientTest {
     protected static final String A_CA_CERTS_LOCATION = "certs/a_caCerts.pem";
-    protected static final String B_CA_CERTS_LOCATION = "certs/b_caCerts.pem";
     protected static final String A_SIGNED_CLIENT_CERT_LOCATION = "certs/a_client.crt";
-    protected static final String A_SIGNED_SERVER_CERT_LOCATION = "certs/a_server.crt";
-    protected static final String B_SIGNED_CLIENT_CERT_LOCATION = "certs/b_client.crt";
-    protected static final String C_SIGNED_CLIENT_CERT_LOCATION = "certs/c_client.crt";
     protected static final String A_SIGNED_CLIENT_KEY_LOCATION = "certs/a_client.key";
-    protected static final String C_SIGNED_CLIENT_KEY_LOCATION = "certs/c_client.key";
+    protected static final String A_SIGNED_SERVER_CERT_LOCATION = "certs/a_server.crt";
     protected static final String A_SIGNED_SERVER_KEY_LOCATION = "certs/a_server.key";
+    protected static final String B_CA_CERTS_LOCATION = "certs/b_caCerts.pem";
+    protected static final String B_SIGNED_CLIENT_CERT_LOCATION = "certs/b_client.crt";
     protected static final String B_SIGNED_CLIENT_KEY_LOCATION = "certs/b_client.key";
+    protected static final String C_SIGNED_CLIENT_CERT_LOCATION = "certs/c_client.crt";
+    protected static final String C_SIGNED_CLIENT_KEY_LOCATION = "certs/c_client.key";
     protected static final String A_SIGNED_CLIENT_KEY_PASSWORD = "test";
     protected static final String A_SIGNED_SERVER_KEY_PASSWORD = A_SIGNED_CLIENT_KEY_PASSWORD;
     protected static final String B_SIGNED_CLIENT_KEY_PASSWORD = A_SIGNED_CLIENT_KEY_PASSWORD;
     private static final String TLS_FAILURE_MESSAGE = "Unexpected TLS connection test result";
 
     @Test
-    public void callingTestHttpServiceShouldSucceed() throws IOException {
+    public void callingTestHttpServiceShouldSucceed() throws Throwable {
         assertTrue(TLS_FAILURE_MESSAGE, call());
     }
 
     @Test
     public void callingTestHttpServiceUsingHttpsWithoutCaCertsShouldUseDefaultTruststore()
-            throws IOException {
+            throws Throwable {
         assertTrue(TLS_FAILURE_MESSAGE, callHttpsWithoutAnyTlsSetup());
     }
 
     @Test
-    public void callingTestHttpServiceUsingHttpsWithOnlyClientSetupShouldUseDefaultTruststore()
-            throws IOException {
+    public void
+            callingTestHttpServiceUsingHttpsWithOnlyClientSetupShouldUseDefaultTruststoreAndSucceed()
+                    throws Throwable {
         assertTrue(TLS_FAILURE_MESSAGE, callHttpsWithOnlyClientSetup());
     }
 
     @Test
-    public void callingTestHttpServiceWithTlsFromPathShouldSucceed() throws IOException {
+    public void callingTestHttpServiceWithTlsFromPathShouldSucceed() throws Throwable {
         assertTrue(TLS_FAILURE_MESSAGE, callWithTlsFromPath());
     }
 
     @Test
-    public void callingTestHttpServiceWithTlsFromClasspathShouldSucceed() throws IOException {
+    public void callingTestHttpServiceWithTlsFromClasspathShouldSucceed() throws Throwable {
         assertTrue(TLS_FAILURE_MESSAGE, callWithTlsFromClasspath());
     }
 
     @Test
     public void callingTestHttpServiceWithTlsUsingKeyWithoutPasswordShouldSucceed()
-            throws IOException {
+            throws Throwable {
         assertTrue(TLS_FAILURE_MESSAGE, callWithTlsFromClasspathWithoutKeyPassword());
     }
 
     @Test
-    public void callingTestHttpServiceWithJustServerSideTlsShouldSucceed() throws IOException {
+    public void callingTestHttpServiceWithJustServerSideTlsShouldSucceed() throws Throwable {
         assertTrue(TLS_FAILURE_MESSAGE, callWithJustServerSideTls());
     }
 
     @Test(expected = SSLException.class)
-    public void callingTestHttpServiceWithUntrustedTlsClientShouldFail() throws IOException {
+    public void callingTestHttpServiceWithUntrustedTlsClientShouldFail() throws Throwable {
         assertFalse(callWithUntrustedTlsClient());
     }
 
     @Test(expected = SSLException.class)
-    public void callingAnUntrustedTestHttpServiceWithTlsClientShouldFail() throws IOException {
+    public void callingAnUntrustedTestHttpServiceWithTlsClientShouldFail() throws Throwable {
         assertFalse(callUntrustedServerWithTlsClient());
     }
 
     @Test(expected = SSLException.class)
-    public void callingTestHttpServiceWhereTlsRequiredButNoCertGivenShouldFail()
-            throws IOException {
+    public void callingTestHttpServiceWhereTlsRequiredButNoCertGivenShouldFail() throws Throwable {
         assertFalse(callWithNoCertGivenButRequired());
     }
 
-    public abstract boolean call() throws IOException;
+    public abstract boolean call() throws Throwable;
 
-    protected abstract boolean callHttpsWithoutAnyTlsSetup() throws IOException;
+    protected abstract boolean callHttpsWithoutAnyTlsSetup() throws Throwable;
 
-    protected abstract boolean callHttpsWithOnlyClientSetup() throws IOException;
+    protected abstract boolean callHttpsWithOnlyClientSetup() throws Throwable;
 
-    public abstract boolean callWithTlsFromPath() throws IOException;
+    public abstract boolean callWithTlsFromPath() throws Throwable;
 
-    public abstract boolean callWithTlsFromClasspath() throws IOException;
+    public abstract boolean callWithTlsFromClasspath() throws Throwable;
 
-    public abstract boolean callWithTlsFromClasspathWithoutKeyPassword() throws IOException;
+    public abstract boolean callWithTlsFromClasspathWithoutKeyPassword() throws Throwable;
 
-    public abstract boolean callWithUntrustedTlsClient() throws IOException;
+    public abstract boolean callWithUntrustedTlsClient() throws Throwable;
 
-    public abstract boolean callUntrustedServerWithTlsClient() throws IOException;
+    public abstract boolean callUntrustedServerWithTlsClient() throws Throwable;
 
-    public abstract boolean callWithNoCertGivenButRequired() throws IOException;
+    public abstract boolean callWithNoCertGivenButRequired() throws Throwable;
 
-    public abstract boolean callWithJustServerSideTls() throws IOException;
+    public abstract boolean callWithJustServerSideTls() throws Throwable;
 
     public static class FromFunctionNettyTestServer {
         private EventLoopGroup eventLoopGroup;
@@ -168,7 +168,7 @@ public abstract class TransportClientTest {
                         getServerBootstrap(
                                 getChannelInitializer(
                                         loadKeyManagerForTlsServerA(),
-                                        loadTrustManager("classpath:" + A_CA_CERTS_LOCATION)));
+                                        loadTrustManagerForTlsServerA()));
 
                 ServerBootstrap httpsServerTlsBootstrap =
                         getServerBootstrap(getChannelInitializer(loadKeyManagerForTlsServerA()));
@@ -227,9 +227,10 @@ public abstract class TransportClientTest {
             };
         }
 
-        private X509ExtendedTrustManager loadTrustManager(String trustManagerLocation) {
+        private X509ExtendedTrustManager loadTrustManagerForTlsServerA() {
             return PemUtils.loadTrustMaterial(
-                    openStreamOrThrow(ResourceLocator.findNamedResource(trustManagerLocation)));
+                    openStreamOrThrow(
+                            ResourceLocator.findNamedResource("classpath:" + A_CA_CERTS_LOCATION)));
         }
 
         private X509ExtendedKeyManager loadKeyManagerForTlsServerA() {

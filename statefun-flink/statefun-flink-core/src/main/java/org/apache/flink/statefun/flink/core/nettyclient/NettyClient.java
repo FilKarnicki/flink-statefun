@@ -17,8 +17,10 @@
  */
 package org.apache.flink.statefun.flink.core.nettyclient;
 
+import nl.altindag.ssl.SSLFactory;
 import org.apache.flink.shaded.netty4.io.netty.bootstrap.Bootstrap;
 import org.apache.flink.shaded.netty4.io.netty.channel.Channel;
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelDuplexHandler;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelOption;
 import org.apache.flink.shaded.netty4.io.netty.channel.EventLoop;
 import org.apache.flink.shaded.netty4.io.netty.channel.pool.ChannelHealthChecker;
@@ -26,16 +28,20 @@ import org.apache.flink.shaded.netty4.io.netty.channel.pool.ChannelPoolHandler;
 import org.apache.flink.shaded.netty4.io.netty.channel.pool.FixedChannelPool;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.ReadOnlyHttpHeaders;
 import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslContext;
+import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.flink.shaded.netty4.io.netty.util.concurrent.ScheduledFuture;
+import org.apache.flink.statefun.flink.core.httpfn.DefaultHttpRequestReplyClientFactory;
 import org.apache.flink.statefun.flink.core.metrics.RemoteInvocationMetrics;
 import org.apache.flink.statefun.flink.core.reqreply.RequestReplyClient;
 import org.apache.flink.statefun.flink.core.reqreply.ToFunctionRequestSummary;
 import org.apache.flink.statefun.sdk.reqreply.generated.FromFunction;
 import org.apache.flink.statefun.sdk.reqreply.generated.ToFunction;
 
+import javax.net.ssl.SSLException;
 import java.io.Closeable;
 import java.net.URI;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
@@ -52,7 +58,14 @@ final class NettyClient implements RequestReplyClient, NettyClientService {
 
     public static NettyClient from(
             NettySharedResources shared, NettyRequestReplySpec spec, URI endpointUrl) {
-        String s = "";
+        return from(shared, spec, endpointUrl, new NettyRequestReplyHandler());
+    }
+
+    static NettyClient from(
+            NettySharedResources shared,
+            NettyRequestReplySpec spec,
+            URI endpointUrl,
+            ChannelDuplexHandler nettyRequestReplyHandler) {
         Endpoint endpoint = new Endpoint(endpointUrl);
         long totalRequestBudgetInNanos = spec.callTimeout.toNanos();
         ReadOnlyHttpHeaders headers = NettyHeaders.defaultHeadersFor(endpoint.serviceAddress());
@@ -62,15 +75,14 @@ final class NettyClient implements RequestReplyClient, NettyClientService {
         bootstrap.option(CONNECT_TIMEOUT_MILLIS, (int) spec.connectTimeout.toMillis());
         bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
         bootstrap.remoteAddress(endpoint.serviceAddress());
-        // setup tls
-        final SslContext sslContext = endpoint.useTls() ? shared.sslContext() : null;
-        // setup a channel pool handler
+        SslContext sslContext = getSslContextIfRequiredOrNull(spec, endpoint);
         ChannelPoolHandler poolHandler =
                 new HttpConnectionPoolManager(
                         sslContext,
                         spec,
                         endpoint.serviceAddress().getHostString(),
-                        endpoint.serviceAddress().getPort());
+                        endpoint.serviceAddress().getPort(),
+                        nettyRequestReplyHandler);
         // setup a fixed capacity channel pool
         FixedChannelPool pool =
                 new FixedChannelPool(
@@ -211,5 +223,40 @@ final class NettyClient implements RequestReplyClient, NettyClientService {
             return;
         }
         channel.close().addListener(ignored -> pool.release(channel));
+    }
+
+    private static SslContext getSslContextIfRequiredOrNull(
+            NettyRequestReplySpec spec, Endpoint endpoint) {
+        Optional<SSLFactory> maybeSslFactory =
+                DefaultHttpRequestReplyClientFactory.buildSslFactory(
+                        spec.getTrustedCaCertsOptional(),
+                        spec.getClientCertsOptional(),
+                        spec.getClientKeyOptional(),
+                        spec.getClientKeyPasswordOptional());
+
+        SslContext sslContext = null;
+        if (endpoint.useTls()) {
+            if (maybeSslFactory.isPresent()) {
+                sslContext = createSslContext(maybeSslFactory.get());
+            } else {
+                try {
+                    sslContext = SslContextBuilder.forClient().build();
+                } catch (SSLException e) {
+                    throw new IllegalStateException("Failed to initialize an SSL provider", e);
+                }
+            }
+        }
+        return sslContext;
+    }
+
+    private static SslContext createSslContext(SSLFactory sslFactory) {
+        SslContextBuilder sslContextBuilder = SslContextBuilder.forClient();
+        sslFactory.getTrustManager().ifPresent(sslContextBuilder::trustManager);
+        sslFactory.getKeyManager().ifPresent(sslContextBuilder::keyManager);
+        try {
+            return sslContextBuilder.build();
+        } catch (SSLException e) {
+            throw new IllegalStateException("Could not create an ssl context", e);
+        }
     }
 }

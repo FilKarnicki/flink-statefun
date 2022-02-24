@@ -17,13 +17,6 @@
  */
 package org.apache.flink.statefun.flink.core.nettyclient;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicBoolean;
-import javax.annotation.Nullable;
-import javax.net.ssl.SSLException;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.shaded.netty4.io.netty.bootstrap.Bootstrap;
 import org.apache.flink.shaded.netty4.io.netty.channel.Channel;
@@ -36,82 +29,71 @@ import org.apache.flink.shaded.netty4.io.netty.channel.kqueue.KQueueEventLoopGro
 import org.apache.flink.shaded.netty4.io.netty.channel.kqueue.KQueueSocketChannel;
 import org.apache.flink.shaded.netty4.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.flink.shaded.netty4.io.netty.channel.socket.nio.NioSocketChannel;
-import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslContext;
-import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.flink.util.IOUtils;
 
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 final class NettySharedResources {
-  private final AtomicBoolean shutdown = new AtomicBoolean();
-  private final Bootstrap bootstrap;
-  @Nullable private SslContext sslContext;
+    private final AtomicBoolean shutdown = new AtomicBoolean();
+    private final Bootstrap bootstrap;
 
-  private final CloseableRegistry mangedResources = new CloseableRegistry();
+    private final CloseableRegistry mangedResources = new CloseableRegistry();
 
-  public NettySharedResources() {
-    // TODO: configure DNS resolving
-    final EventLoopGroup workerGroup;
-    final Class<? extends Channel> channelClass;
-    if (Epoll.isAvailable()) {
-      workerGroup = new EpollEventLoopGroup(demonThreadFactory("netty-http-worker"));
-      channelClass = EpollSocketChannel.class;
-    } else if (KQueue.isAvailable()) {
-      workerGroup = new KQueueEventLoopGroup(demonThreadFactory("http-netty-worker"));
-      channelClass = KQueueSocketChannel.class;
-    } else {
-      workerGroup = new NioEventLoopGroup(demonThreadFactory("netty-http-client"));
-      channelClass = NioSocketChannel.class;
+    public NettySharedResources() {
+        // TODO: configure DNS resolving
+        final EventLoopGroup workerGroup;
+        final Class<? extends Channel> channelClass;
+        if (Epoll.isAvailable()) {
+            workerGroup = new EpollEventLoopGroup(demonThreadFactory("netty-http-worker"));
+            channelClass = EpollSocketChannel.class;
+        } else if (KQueue.isAvailable()) {
+            workerGroup = new KQueueEventLoopGroup(demonThreadFactory("http-netty-worker"));
+            channelClass = KQueueSocketChannel.class;
+        } else {
+            workerGroup = new NioEventLoopGroup(demonThreadFactory("netty-http-client"));
+            channelClass = NioSocketChannel.class;
+        }
+        registerClosable(workerGroup::shutdownGracefully);
+
+        Bootstrap bootstrap = new Bootstrap();
+        bootstrap.group(workerGroup);
+        bootstrap.channel(channelClass);
+
+        this.bootstrap = bootstrap;
     }
-    registerClosable(workerGroup::shutdownGracefully);
 
-    Bootstrap bootstrap = new Bootstrap();
-    bootstrap.group(workerGroup);
-    bootstrap.channel(channelClass);
-
-    this.bootstrap = bootstrap;
-  }
-
-  public Bootstrap bootstrap() {
-    return bootstrap;
-  }
-
-  public SslContext sslContext() {
-    SslContext sslCtx = sslContext;
-    if (sslCtx != null) {
-      return sslCtx;
+    public Bootstrap bootstrap() {
+        return bootstrap;
     }
-    try {
-      sslCtx = SslContextBuilder.forClient().build();
-      this.sslContext = sslCtx;
-      return sslCtx;
-    } catch (SSLException e) {
-      throw new IllegalStateException("Failed to initialize an SSL provider", e);
+
+    public void registerClosable(Closeable closeable) {
+        try {
+            mangedResources.registerCloseable(closeable);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
-  }
 
-  public void registerClosable(Closeable closeable) {
-    try {
-      mangedResources.registerCloseable(closeable);
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
+    public boolean isShutdown() {
+        return shutdown.get();
     }
-  }
 
-  public boolean isShutdown() {
-    return shutdown.get();
-  }
-
-  public void shutdownGracefully() {
-    if (shutdown.compareAndSet(false, true)) {
-      IOUtils.closeQuietly(mangedResources);
+    public void shutdownGracefully() {
+        if (shutdown.compareAndSet(false, true)) {
+            IOUtils.closeQuietly(mangedResources);
+        }
     }
-  }
 
-  private static ThreadFactory demonThreadFactory(String name) {
-    return runnable -> {
-      Thread t = new Thread(runnable);
-      t.setDaemon(true);
-      t.setName(name);
-      return t;
-    };
-  }
+    private static ThreadFactory demonThreadFactory(String name) {
+        return runnable -> {
+            Thread t = new Thread(runnable);
+            t.setDaemon(true);
+            t.setName(name);
+            return t;
+        };
+    }
 }
