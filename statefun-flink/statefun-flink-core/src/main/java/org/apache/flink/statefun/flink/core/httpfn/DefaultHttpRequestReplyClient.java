@@ -35,59 +35,47 @@ import static org.apache.flink.statefun.flink.core.common.PolyglotUtil.parseProt
 import static org.apache.flink.util.Preconditions.checkState;
 
 final class DefaultHttpRequestReplyClient implements RequestReplyClient {
-    private static final MediaType MEDIA_TYPE_BINARY = MediaType.parse("application/octet-stream");
+  private static final MediaType MEDIA_TYPE_BINARY = MediaType.parse("application/octet-stream");
 
-    private final HttpUrl url;
-    private final OkHttpClient client;
-    private final BooleanSupplier isShutdown;
+  private final HttpUrl url;
+  private final OkHttpClient client;
+  private final BooleanSupplier isShutdown;
 
-    DefaultHttpRequestReplyClient(HttpUrl url, OkHttpClient client, BooleanSupplier isShutdown) {
-        this.url = Objects.requireNonNull(url);
-        this.client = Objects.requireNonNull(client);
-        this.isShutdown = Objects.requireNonNull(isShutdown);
+  DefaultHttpRequestReplyClient(HttpUrl url, OkHttpClient client, BooleanSupplier isShutdown) {
+    this.url = Objects.requireNonNull(url);
+    this.client = Objects.requireNonNull(client);
+    this.isShutdown = Objects.requireNonNull(isShutdown);
+  }
+
+  @Override
+  public CompletableFuture<FromFunction> call(ToFunctionRequestSummary requestSummary, RemoteInvocationMetrics metrics, ToFunction toFunction) {
+    Call newCall = callOnce(toFunction);
+
+    RetryingCallback callback = new RetryingCallback(requestSummary, metrics, newCall.timeout(), isShutdown);
+    callback.attachToCall(newCall);
+
+    return callback.future().thenApply(DefaultHttpRequestReplyClient::parseResponse);
+  }
+
+  Call callOnce(ToFunction toFunction) {
+    Request request = new Request.Builder().url(url).post(RequestBody.create(MEDIA_TYPE_BINARY, toFunction.toByteArray())).build();
+
+    return client.newCall(request);
+  }
+
+  private static FromFunction parseResponse(Response response) {
+    final InputStream httpResponseBody = responseBody(response);
+    try {
+      return parseProtobufOrThrow(FromFunction.parser(), httpResponseBody);
+    } finally {
+      IOUtils.closeQuietly(httpResponseBody);
     }
+  }
 
-    @Override
-    public CompletableFuture<FromFunction> call(
-            ToFunctionRequestSummary requestSummary,
-            RemoteInvocationMetrics metrics,
-            ToFunction toFunction) {
-        Call newCall = callOnce(toFunction);
-
-        RetryingCallback callback =
-                new RetryingCallback(requestSummary, metrics, newCall.timeout(), isShutdown);
-        callback.attachToCall(newCall);
-
-        return callback.future().thenApply(DefaultHttpRequestReplyClient::parseResponse);
-    }
-
-    public Call callOnce(ToFunction toFunction) {
-        Request request =
-                new Request.Builder()
-                        .url(url)
-                        .post(RequestBody.create(MEDIA_TYPE_BINARY, toFunction.toByteArray()))
-                        .build();
-
-        return client.newCall(request);
-    }
-
-    private static FromFunction parseResponse(Response response) {
-        final InputStream httpResponseBody = responseBody(response);
-        try {
-            return parseProtobufOrThrow(FromFunction.parser(), httpResponseBody);
-        } finally {
-            IOUtils.closeQuietly(httpResponseBody);
-        }
-    }
-
-    private static InputStream responseBody(Response httpResponse) {
-        checkState(
-                httpResponse.isSuccessful(), "Unexpected HTTP status code %s", httpResponse.code());
-        checkState(httpResponse.body() != null, "Unexpected empty HTTP response (no body)");
-        checkState(
-                Objects.equals(httpResponse.body().contentType(), MEDIA_TYPE_BINARY),
-                "Wrong HTTP content-type %s",
-                httpResponse.body().contentType());
-        return httpResponse.body().byteStream();
-    }
+  private static InputStream responseBody(Response httpResponse) {
+    checkState(httpResponse.isSuccessful(), "Unexpected HTTP status code %s", httpResponse.code());
+    checkState(httpResponse.body() != null, "Unexpected empty HTTP response (no body)");
+    checkState(Objects.equals(httpResponse.body().contentType(), MEDIA_TYPE_BINARY), "Wrong HTTP content-type %s", httpResponse.body().contentType());
+    return httpResponse.body().byteStream();
+  }
 }

@@ -38,62 +38,62 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 final class NettySharedResources {
-    private final AtomicBoolean shutdown = new AtomicBoolean();
-    private final Bootstrap bootstrap;
+  private final AtomicBoolean shutdown = new AtomicBoolean();
+  private final Bootstrap bootstrap;
 
-    private final CloseableRegistry mangedResources = new CloseableRegistry();
+  private final CloseableRegistry mangedResources = new CloseableRegistry();
 
-    public NettySharedResources() {
-        // TODO: configure DNS resolving
-        final EventLoopGroup workerGroup;
-        final Class<? extends Channel> channelClass;
-        if (Epoll.isAvailable()) {
-            workerGroup = new EpollEventLoopGroup(demonThreadFactory("netty-http-worker"));
-            channelClass = EpollSocketChannel.class;
-        } else if (KQueue.isAvailable()) {
-            workerGroup = new KQueueEventLoopGroup(demonThreadFactory("http-netty-worker"));
-            channelClass = KQueueSocketChannel.class;
-        } else {
-            workerGroup = new NioEventLoopGroup(demonThreadFactory("netty-http-client"));
-            channelClass = NioSocketChannel.class;
-        }
-        registerClosable(workerGroup::shutdownGracefully);
-
-        Bootstrap bootstrap = new Bootstrap();
-        bootstrap.group(workerGroup);
-        bootstrap.channel(channelClass);
-
-        this.bootstrap = bootstrap;
+  public NettySharedResources() {
+    // TODO: configure DNS resolving
+    final EventLoopGroup workerGroup;
+    final Class<? extends Channel> channelClass;
+    if (Epoll.isAvailable()) {
+      workerGroup = new EpollEventLoopGroup(demonThreadFactory("netty-http-worker"));
+      channelClass = EpollSocketChannel.class;
+    } else if (KQueue.isAvailable()) {
+      workerGroup = new KQueueEventLoopGroup(demonThreadFactory("http-netty-worker"));
+      channelClass = KQueueSocketChannel.class;
+    } else {
+      workerGroup = new NioEventLoopGroup(demonThreadFactory("netty-http-client"));
+      channelClass = NioSocketChannel.class;
     }
+    registerClosable(workerGroup::shutdownGracefully);
 
-    public Bootstrap bootstrap() {
-        return bootstrap;
-    }
+    Bootstrap bootstrap = new Bootstrap();
+    bootstrap.group(workerGroup);
+    bootstrap.channel(channelClass);
 
-    public void registerClosable(Closeable closeable) {
-        try {
-            mangedResources.registerCloseable(closeable);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
+    this.bootstrap = bootstrap;
+  }
 
-    public boolean isShutdown() {
-        return shutdown.get();
-    }
+  public Bootstrap bootstrap() {
+    return bootstrap;
+  }
 
-    public void shutdownGracefully() {
-        if (shutdown.compareAndSet(false, true)) {
-            IOUtils.closeQuietly(mangedResources);
-        }
+  public void registerClosable(Closeable closeable) {
+    try {
+      mangedResources.registerCloseable(closeable);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
     }
+  }
 
-    private static ThreadFactory demonThreadFactory(String name) {
-        return runnable -> {
-            Thread t = new Thread(runnable);
-            t.setDaemon(true);
-            t.setName(name);
-            return t;
-        };
+  public boolean isShutdown() {
+    return shutdown.get();
+  }
+
+  public void shutdownGracefully() {
+    if (shutdown.compareAndSet(false, true)) {
+      IOUtils.closeQuietly(mangedResources);
     }
+  }
+
+  private static ThreadFactory demonThreadFactory(String name) {
+    return runnable -> {
+      Thread t = new Thread(runnable);
+      t.setDaemon(true);
+      t.setName(name);
+      return t;
+    };
+  }
 }
