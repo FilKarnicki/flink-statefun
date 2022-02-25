@@ -23,7 +23,8 @@ public class DefaultHttpRequestReplyClientSpecTest {
     final Duration readTimeout = Duration.ofSeconds(3L);
     final Duration writeTimeout = Duration.ofMillis(4L);
 
-    final DefaultHttpRequestReplyClientSpec.Timeouts timeouts = new DefaultHttpRequestReplyClientSpec.Timeouts();
+    final DefaultHttpRequestReplyClientSpec.Timeouts timeouts =
+        new DefaultHttpRequestReplyClientSpec.Timeouts();
     timeouts.setCallTimeout(callTimeout);
     timeouts.setConnectTimeout(connectTimeout);
     timeouts.setReadTimeout(readTimeout);
@@ -33,7 +34,8 @@ public class DefaultHttpRequestReplyClientSpecTest {
     final String clientCerts = "file:certs/clientCerts";
     final String clientKey = "/tmp/clients.pem";
 
-    final DefaultHttpRequestReplyClientSpec defaultHttpRequestReplyClientSpec = new DefaultHttpRequestReplyClientSpec();
+    final DefaultHttpRequestReplyClientSpec defaultHttpRequestReplyClientSpec =
+        new DefaultHttpRequestReplyClientSpec();
     defaultHttpRequestReplyClientSpec.setTimeouts(timeouts);
     defaultHttpRequestReplyClientSpec.setTrustCaCerts(trustCaCerts);
     defaultHttpRequestReplyClientSpec.setClientCerts(clientCerts);
@@ -42,7 +44,8 @@ public class DefaultHttpRequestReplyClientSpecTest {
     final ObjectMapper objectMapper = StateFunObjectMapper.create();
     final ObjectNode json = defaultHttpRequestReplyClientSpec.toJson(objectMapper);
 
-    final DefaultHttpRequestReplyClientSpec deserializedHttpRequestReplyClientSpec = DefaultHttpRequestReplyClientSpec.fromJson(objectMapper, json);
+    final DefaultHttpRequestReplyClientSpec deserializedHttpRequestReplyClientSpec =
+        DefaultHttpRequestReplyClientSpec.fromJson(objectMapper, json);
 
     assertThat(deserializedHttpRequestReplyClientSpec.getTimeouts(), equalTimeouts(timeouts));
     assertThat(deserializedHttpRequestReplyClientSpec.getTrustCaCerts(), is(trustCaCerts));
@@ -50,11 +53,13 @@ public class DefaultHttpRequestReplyClientSpecTest {
     assertThat(deserializedHttpRequestReplyClientSpec.getClientKey(), is(clientKey));
   }
 
-  private static TypeSafeDiagnosingMatcher<DefaultHttpRequestReplyClientSpec.Timeouts> equalTimeouts(DefaultHttpRequestReplyClientSpec.Timeouts timeouts) {
+  private static TypeSafeDiagnosingMatcher<DefaultHttpRequestReplyClientSpec.Timeouts>
+      equalTimeouts(DefaultHttpRequestReplyClientSpec.Timeouts timeouts) {
     return new TimeoutsEqualityMatcher(timeouts);
   }
 
-  private static class TimeoutsEqualityMatcher extends TypeSafeDiagnosingMatcher<DefaultHttpRequestReplyClientSpec.Timeouts> {
+  private static class TimeoutsEqualityMatcher
+      extends TypeSafeDiagnosingMatcher<DefaultHttpRequestReplyClientSpec.Timeouts> {
     private final DefaultHttpRequestReplyClientSpec.Timeouts expected;
 
     private TimeoutsEqualityMatcher(DefaultHttpRequestReplyClientSpec.Timeouts timeouts) {
@@ -62,7 +67,8 @@ public class DefaultHttpRequestReplyClientSpecTest {
     }
 
     @Override
-    protected boolean matchesSafely(DefaultHttpRequestReplyClientSpec.Timeouts timeouts, Description description) {
+    protected boolean matchesSafely(
+        DefaultHttpRequestReplyClientSpec.Timeouts timeouts, Description description) {
 
       return Stream.of(isMatching(expected.getCallTimeout(), timeouts.getCallTimeout(), description),
               isMatching(expected.getReadTimeout(), timeouts.getReadTimeout(), description),

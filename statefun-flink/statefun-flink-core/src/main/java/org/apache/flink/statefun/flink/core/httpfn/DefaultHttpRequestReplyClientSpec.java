@@ -49,7 +49,8 @@ public final class DefaultHttpRequestReplyClientSpec {
 
   @JsonSetter("timeouts")
   public void setTimeouts(Timeouts timeouts) {
-    validateTimeouts(timeouts.callTimeout, timeouts.connectTimeout, timeouts.readTimeout, timeouts.writeTimeout);
+    validateTimeouts(
+        timeouts.callTimeout, timeouts.connectTimeout, timeouts.readTimeout, timeouts.writeTimeout);
     this.timeouts = timeouts;
   }
 
@@ -109,11 +110,13 @@ public final class DefaultHttpRequestReplyClientSpec {
     return objectMapper.valueToTree(this);
   }
 
-  static DefaultHttpRequestReplyClientSpec fromJson(ObjectMapper objectMapper, JsonNode jsonNode) throws JsonProcessingException {
+  static DefaultHttpRequestReplyClientSpec fromJson(ObjectMapper objectMapper, JsonNode jsonNode)
+      throws JsonProcessingException {
     return objectMapper.treeToValue(jsonNode, DefaultHttpRequestReplyClientSpec.class);
   }
 
-  private static void validateTimeouts(Duration callTimeout, Duration connectTimeout, Duration readTimeout, Duration writeTimeout) {
+  private static void validateTimeouts(
+      Duration callTimeout, Duration connectTimeout, Duration readTimeout, Duration writeTimeout) {
 
     if (connectTimeout.compareTo(callTimeout) > 0) {
       throw new IllegalArgumentException("Connect timeout cannot be larger than request timeout.");

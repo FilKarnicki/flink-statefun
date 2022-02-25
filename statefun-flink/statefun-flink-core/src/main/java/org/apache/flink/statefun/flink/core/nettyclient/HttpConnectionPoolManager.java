@@ -17,6 +17,9 @@
  */
 package org.apache.flink.statefun.flink.core.nettyclient;
 
+import javax.annotation.Nullable;
+import java.util.Objects;
+
 import org.apache.flink.shaded.netty4.io.netty.channel.Channel;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelDuplexHandler;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelPipeline;
@@ -27,9 +30,6 @@ import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpObjectAggr
 import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslContext;
 import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslHandler;
 
-import javax.annotation.Nullable;
-import java.util.Objects;
-
 final class HttpConnectionPoolManager implements ChannelPoolHandler {
     private final NettyRequestReplySpec spec;
     private final SslContext sslContext;
@@ -38,11 +38,7 @@ final class HttpConnectionPoolManager implements ChannelPoolHandler {
     private final ChannelDuplexHandler requestReplyHandler;
 
     public HttpConnectionPoolManager(
-            @Nullable SslContext sslContext,
-            NettyRequestReplySpec spec,
-            String peerHost,
-            int peerPort,
-            ChannelDuplexHandler requestReplyHandler) {
+          @Nullable SslContext sslContext, NettyRequestReplySpec spec, String peerHost, int peerPort, ChannelDuplexHandler requestReplyHandler) {
         this.spec = Objects.requireNonNull(spec);
         this.peerHost = Objects.requireNonNull(peerHost);
         this.sslContext = sslContext;
