@@ -17,9 +17,8 @@
  */
 package org.apache.flink.statefun.flink.core.nettyclient;
 
-import java.util.Objects;
-import javax.annotation.Nullable;
 import org.apache.flink.shaded.netty4.io.netty.channel.Channel;
+import org.apache.flink.shaded.netty4.io.netty.channel.ChannelDuplexHandler;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelPipeline;
 import org.apache.flink.shaded.netty4.io.netty.channel.pool.ChannelPoolHandler;
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpClientCodec;
@@ -28,18 +27,23 @@ import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpObjectAggr
 import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslContext;
 import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslHandler;
 
+import javax.annotation.Nullable;
+import java.util.Objects;
+
 final class HttpConnectionPoolManager implements ChannelPoolHandler {
   private final NettyRequestReplySpec spec;
   private final SslContext sslContext;
   private final String peerHost;
   private final int peerPort;
+  private final ChannelDuplexHandler requestReplyHandler;
 
   public HttpConnectionPoolManager(
-      @Nullable SslContext sslContext, NettyRequestReplySpec spec, String peerHost, int peerPort) {
+      @Nullable SslContext sslContext, NettyRequestReplySpec spec, String peerHost, int peerPort, ChannelDuplexHandler requestReplyHandler) {
     this.spec = Objects.requireNonNull(spec);
     this.peerHost = Objects.requireNonNull(peerHost);
     this.sslContext = sslContext;
     this.peerPort = peerPort;
+    this.requestReplyHandler = requestReplyHandler;
   }
 
   @Override
@@ -64,7 +68,7 @@ final class HttpConnectionPoolManager implements ChannelPoolHandler {
     p.addLast(new HttpClientCodec());
     p.addLast(new HttpContentDecompressor(true));
     p.addLast(new HttpObjectAggregator(spec.maxRequestOrResponseSizeInBytes, true));
-    p.addLast(new NettyRequestReplyHandler());
+    p.addLast(requestReplyHandler);
 
     long channelTimeToLiveMillis = spec.pooledConnectionTTL.toMillis();
     p.addLast(new HttpConnectionPoolHandler(channelTimeToLiveMillis));
