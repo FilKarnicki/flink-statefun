@@ -48,14 +48,11 @@ public final class NettyRequestReplySpec {
   @VisibleForTesting
   public static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(20);
 
-  @VisibleForTesting
-  public static final Duration DEFAULT_POOLED_CONNECTION_TTL = Duration.ofSeconds(15);
+  @VisibleForTesting public static final Duration DEFAULT_POOLED_CONNECTION_TTL = Duration.ofSeconds(15);
 
-  @VisibleForTesting
-  public static final int DEFAULT_CONNECTION_POOL_MAX_SIZE = 1024;
+  @VisibleForTesting public static final int DEFAULT_CONNECTION_POOL_MAX_SIZE = 1024;
 
-  @VisibleForTesting
-  public static final int DEFAULT_MAX_REQUEST_OR_RESPONSE_SIZE_IN_BYTES = 32 * 1048576;
+  @VisibleForTesting public static final int DEFAULT_MAX_REQUEST_OR_RESPONSE_SIZE_IN_BYTES = 32 * 1048576;
 
   // spec values
   public final Duration callTimeout;

@@ -73,25 +73,27 @@ final class NettyClient implements RequestReplyClient, NettyClientService {
     bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
     bootstrap.remoteAddress(endpoint.serviceAddress());
     // setup tls
-    SslContext sslContext = getSslContextIfRequiredOrNull(spec, endpoint);
+    final SslContext sslContext = getSslContextIfRequiredOrNull(spec, endpoint);
     // setup a channel pool handler
-    ChannelPoolHandler poolHandler = new HttpConnectionPoolManager(
-        sslContext,
-        spec,
-        endpoint.serviceAddress().getHostString(),
-        endpoint.serviceAddress().getPort(),
-        nettyRequestReplyHandler);
+    ChannelPoolHandler poolHandler =
+        new HttpConnectionPoolManager(
+            sslContext,
+            spec,
+            endpoint.serviceAddress().getHostString(),
+            endpoint.serviceAddress().getPort(),
+            nettyRequestReplyHandler);
     // setup a fixed capacity channel pool
-    FixedChannelPool pool = new FixedChannelPool(
-        bootstrap,
-        poolHandler,
-        ChannelHealthChecker.ACTIVE,
-        FixedChannelPool.AcquireTimeoutAction.FAIL,
-        spec.connectTimeout.toMillis(),
-        spec.connectionPoolMaxSize,
-        2147483647,
-        true,
-        true);
+    FixedChannelPool pool =
+        new FixedChannelPool(
+            bootstrap,
+            poolHandler,
+            ChannelHealthChecker.ACTIVE,
+            FixedChannelPool.AcquireTimeoutAction.FAIL,
+            spec.connectTimeout.toMillis(),
+            spec.connectionPoolMaxSize,
+            2147483647,
+            true,
+            true);
     shared.registerClosable(pool::closeAsync);
     // use a dedicated, event loop to execute timers and tasks. An event loop is backed by a single
     // thread.
@@ -197,10 +199,11 @@ final class NettyClient implements RequestReplyClient, NettyClientService {
   public <T> void writeAndFlush(T what, Channel where, BiConsumer<Void, Throwable> andThen) {
     where
         .writeAndFlush(what)
-        .addListener(future -> {
-          Throwable cause = future.cause();
-          andThen.accept(null, cause);
-        });
+        .addListener(
+            future -> {
+              Throwable cause = future.cause();
+              andThen.accept(null, cause);
+            });
   }
 
   private void releaseChannel0(Channel channel) {
