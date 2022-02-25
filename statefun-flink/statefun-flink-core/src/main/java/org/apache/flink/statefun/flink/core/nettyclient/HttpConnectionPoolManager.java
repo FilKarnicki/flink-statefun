@@ -38,7 +38,7 @@ final class HttpConnectionPoolManager implements ChannelPoolHandler {
     private final ChannelDuplexHandler requestReplyHandler;
 
     public HttpConnectionPoolManager(
-        @Nullable SslContext sslContext, NettyRequestReplySpec spec, String peerHost, int peerPort, ChannelDuplexHandler requestReplyHandler) {
+          @Nullable SslContext sslContext, NettyRequestReplySpec spec, String peerHost, int peerPort, ChannelDuplexHandler requestReplyHandler) {
         this.spec = Objects.requireNonNull(spec);
         this.peerHost = Objects.requireNonNull(peerHost);
         this.sslContext = sslContext;
