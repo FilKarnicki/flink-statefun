@@ -51,16 +51,15 @@ import static org.apache.flink.statefun.flink.core.httpfn.OkHttpUnixSocketBridge
 
 public final class DefaultHttpRequestReplyClientFactory implements RequestReplyClientFactory {
 
-  public static final DefaultHttpRequestReplyClientFactory INSTANCE = new DefaultHttpRequestReplyClientFactory();
+  public static final DefaultHttpRequestReplyClientFactory INSTANCE =
+      new DefaultHttpRequestReplyClientFactory();
 
   private static final ObjectMapper OBJ_MAPPER = StateFunObjectMapper.create();
 
   /** lazily initialized by {@link #createTransportClient} */
-  @Nullable
-  private volatile OkHttpClient sharedClient;
+  @Nullable private volatile OkHttpClient sharedClient;
 
-  private DefaultHttpRequestReplyClientFactory() {
-  }
+  private DefaultHttpRequestReplyClientFactory() {}
 
   @Override
   public RequestReplyClient createTransportClient(ObjectNode transportProperties, URI endpointUrl) {
@@ -80,7 +79,8 @@ public final class DefaultHttpRequestReplyClientFactory implements RequestReplyC
     OkHttpUtils.closeSilently(sharedClient);
   }
 
-  private DefaultHttpRequestReplyClient createClient(ObjectNode transportProperties, URI endpointUrl) {
+  private DefaultHttpRequestReplyClient createClient(
+      ObjectNode transportProperties, URI endpointUrl) {
     try (SetContextClassLoader ignored = new SetContextClassLoader(this)) {
       OkHttpClient sharedClient = this.sharedClient;
       if (sharedClient == null) {
@@ -89,7 +89,8 @@ public final class DefaultHttpRequestReplyClientFactory implements RequestReplyC
       }
       final OkHttpClient.Builder clientBuilder = sharedClient.newBuilder();
 
-      final DefaultHttpRequestReplyClientSpec transportClientSpec = parseTransportProperties(transportProperties);
+      final DefaultHttpRequestReplyClientSpec transportClientSpec =
+          parseTransportProperties(transportProperties);
 
       clientBuilder.callTimeout(transportClientSpec.getTimeouts().getCallTimeout());
       clientBuilder.connectTimeout(transportClientSpec.getTimeouts().getConnectTimeout());
@@ -109,14 +110,20 @@ public final class DefaultHttpRequestReplyClientFactory implements RequestReplyC
       HttpUrl url;
       if (UnixDomainHttpEndpoint.validate(endpointUrl)) {
         UnixDomainHttpEndpoint endpoint = UnixDomainHttpEndpoint.parseFrom(endpointUrl);
-        url = new HttpUrl.Builder().scheme("http").host("unused").addPathSegment(endpoint.pathSegment).build();
+        url =
+            new HttpUrl.Builder()
+                .scheme("http")
+                .host("unused")
+                .addPathSegment(endpoint.pathSegment)
+                .build();
 
         configureUnixDomainSocket(clientBuilder, endpoint.unixDomainFile);
       } else {
         url = HttpUrl.get(endpointUrl);
       }
 
-      return new DefaultHttpRequestReplyClient(url, clientBuilder.build(), () -> isShutdown(this.sharedClient));
+      return new DefaultHttpRequestReplyClient(
+          url, clientBuilder.build(), () -> isShutdown(this.sharedClient));
     }
   }
 
@@ -191,11 +198,13 @@ public final class DefaultHttpRequestReplyClientFactory implements RequestReplyC
     return DefaultHttpRequestReplyClientFactory.this.sharedClient != previousClient;
   }
 
-  private static DefaultHttpRequestReplyClientSpec parseTransportProperties(ObjectNode transportClientProperties) {
+  private static DefaultHttpRequestReplyClientSpec parseTransportProperties(
+      ObjectNode transportClientProperties) {
     try {
       return DefaultHttpRequestReplyClientSpec.fromJson(OBJ_MAPPER, transportClientProperties);
     } catch (Exception e) {
-      throw new RuntimeException("Unable to parse transport client properties when creating client: ", e);
+      throw new RuntimeException(
+          "Unable to parse transport client properties when creating client: ", e);
     }
   }
 

@@ -32,18 +32,13 @@ import java.net.URL;
 public class TestUtils {
 
     public static final MessageFactory ENVELOPE_FACTORY =
-            MessageFactory.forKey(
-                    MessageFactoryKey.forType(MessageFactoryType.WITH_KRYO_PAYLOADS, null));
+            MessageFactory.forKey(MessageFactoryKey.forType(MessageFactoryType.WITH_KRYO_PAYLOADS, null));
 
     public static final FunctionType FUNCTION_TYPE = new FunctionType("test", "a");
     public static final Address FUNCTION_1_ADDR = new Address(FUNCTION_TYPE, "a-1");
     public static final Address FUNCTION_2_ADDR = new Address(FUNCTION_TYPE, "a-2");
     public static final EnvelopeAddress DUMMY_PAYLOAD =
-            EnvelopeAddress.newBuilder()
-                    .setNamespace("com.foo")
-                    .setType("greet")
-                    .setId("user-1")
-                    .build();
+            EnvelopeAddress.newBuilder().setNamespace("com.foo").setType("greet").setId("user-1").build();
 
     /**
      * Opens a stream of throws an exception. Does *not* close the stream

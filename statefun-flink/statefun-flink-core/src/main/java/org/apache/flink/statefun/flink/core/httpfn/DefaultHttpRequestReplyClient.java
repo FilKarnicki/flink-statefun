@@ -75,7 +75,10 @@ final class DefaultHttpRequestReplyClient implements RequestReplyClient {
   private static InputStream responseBody(Response httpResponse) {
     checkState(httpResponse.isSuccessful(), "Unexpected HTTP status code %s", httpResponse.code());
     checkState(httpResponse.body() != null, "Unexpected empty HTTP response (no body)");
-    checkState(Objects.equals(httpResponse.body().contentType(), MEDIA_TYPE_BINARY), "Wrong HTTP content-type %s", httpResponse.body().contentType());
+    checkState(
+        Objects.equals(httpResponse.body().contentType(), MEDIA_TYPE_BINARY),
+        "Wrong HTTP content-type %s",
+        httpResponse.body().contentType());
     return httpResponse.body().byteStream();
   }
 }

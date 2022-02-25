@@ -56,11 +56,13 @@ final class NettyClient implements RequestReplyClient, NettyClientService {
   private final long totalRequestBudgetInNanos;
   private final EventLoop eventLoop;
 
-  public static NettyClient from(NettySharedResources shared, NettyRequestReplySpec spec, URI endpointUrl) {
+  public static NettyClient from(
+      NettySharedResources shared, NettyRequestReplySpec spec, URI endpointUrl) {
     return from(shared, spec, endpointUrl, new NettyRequestReplyHandler());
   }
 
-  static NettyClient from(NettySharedResources shared, NettyRequestReplySpec spec, URI endpointUrl, ChannelDuplexHandler nettyRequestReplyHandler) {
+  static NettyClient from(
+      NettySharedResources shared, NettyRequestReplySpec spec, URI endpointUrl, ChannelDuplexHandler nettyRequestReplyHandler) {
     Endpoint endpoint = new Endpoint(endpointUrl);
     long totalRequestBudgetInNanos = spec.callTimeout.toNanos();
     ReadOnlyHttpHeaders headers = NettyHeaders.defaultHeadersFor(endpoint.serviceAddress());
@@ -70,7 +72,9 @@ final class NettyClient implements RequestReplyClient, NettyClientService {
     bootstrap.option(CONNECT_TIMEOUT_MILLIS, (int) spec.connectTimeout.toMillis());
     bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
     bootstrap.remoteAddress(endpoint.serviceAddress());
+    // setup tls
     SslContext sslContext = getSslContextIfRequiredOrNull(spec, endpoint);
+    // setup a channel pool handler
     ChannelPoolHandler poolHandler = new HttpConnectionPoolManager(
         sslContext,
         spec,
@@ -89,19 +93,19 @@ final class NettyClient implements RequestReplyClient, NettyClientService {
         true,
         true);
     shared.registerClosable(pool::closeAsync);
-    // use a dedicated, event loop to execute timers and tasks. An event loop is backed by a
-    // single
+    // use a dedicated, event loop to execute timers and tasks. An event loop is backed by a single
     // thread.
     EventLoop eventLoop = bootstrap.config().group().next();
     return new NettyClient(shared, eventLoop, pool, endpoint, headers, totalRequestBudgetInNanos);
   }
 
-  private NettyClient(NettySharedResources shared,
-                      EventLoop anEventLoop,
-                      FixedChannelPool pool,
-                      Endpoint endpoint,
-                      ReadOnlyHttpHeaders defaultHttpHeaders,
-                      long totalRequestBudgetInNanos) {
+  private NettyClient(
+      NettySharedResources shared,
+      EventLoop anEventLoop,
+      FixedChannelPool pool,
+      Endpoint endpoint,
+      ReadOnlyHttpHeaders defaultHttpHeaders,
+      long totalRequestBudgetInNanos) {
     this.shared = Objects.requireNonNull(shared);
     this.eventLoop = Objects.requireNonNull(anEventLoop);
     this.pool = Objects.requireNonNull(pool);
@@ -111,7 +115,10 @@ final class NettyClient implements RequestReplyClient, NettyClientService {
   }
 
   @Override
-  public CompletableFuture<FromFunction> call(ToFunctionRequestSummary requestSummary, RemoteInvocationMetrics metrics, ToFunction toFunction) {
+  public CompletableFuture<FromFunction> call(
+      ToFunctionRequestSummary requestSummary,
+      RemoteInvocationMetrics metrics,
+      ToFunction toFunction) {
     NettyRequest request = new NettyRequest(this, metrics, requestSummary, toFunction);
     return request.start();
   }
@@ -123,15 +130,16 @@ final class NettyClient implements RequestReplyClient, NettyClientService {
   @Override
   public void acquireChannel(BiConsumer<Channel, Throwable> consumer) {
     pool.acquire()
-        .addListener(future -> {
-          Throwable cause = future.cause();
-          if (cause != null) {
-            consumer.accept(null, cause);
-          } else {
-            Channel ch = (Channel) future.getNow();
-            consumer.accept(ch, null);
-          }
-        });
+        .addListener(
+            future -> {
+              Throwable cause = future.cause();
+              if (cause != null) {
+                consumer.accept(null, cause);
+              } else {
+                Channel ch = (Channel) future.getNow();
+                consumer.accept(ch, null);
+              }
+            });
   }
 
   @Override
@@ -187,7 +195,8 @@ final class NettyClient implements RequestReplyClient, NettyClientService {
 
   @Override
   public <T> void writeAndFlush(T what, Channel where, BiConsumer<Void, Throwable> andThen) {
-    where.writeAndFlush(what)
+    where
+        .writeAndFlush(what)
         .addListener(future -> {
           Throwable cause = future.cause();
           andThen.accept(null, cause);
@@ -197,10 +206,8 @@ final class NettyClient implements RequestReplyClient, NettyClientService {
   private void releaseChannel0(Channel channel) {
     if (!channel.isActive()) {
       // We still need to return this channel to the pool, because the connection pool
-      // keeps track of the number of acquired channel counts, however the pool will first
-      // consult
-      // the health
-      // check, and then kick that connection away.
+      // keeps track of the number of acquired channel counts, however the pool will first consult
+      // the health check, and then kick that connection away.
       pool.release(channel);
       return;
     }
