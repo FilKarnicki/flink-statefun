@@ -28,6 +28,11 @@ under the License.
     <artifactId>statefun-smoke-e2e-multilang-base</artifactId>
     <packaging>pom</packaging>
 
+    <properties>
+        <sslcontext-kickstart.version>6.8.0</sslcontext-kickstart.version>
+        <slf4j-log4j12.version>1.7.15</slf4j-log4j12.version>
+    </properties>
+
     <dependencies>
         <!-- Testcontainer test utilities, e.g. StatefulFunctionsAppContainers -->
         <dependency>

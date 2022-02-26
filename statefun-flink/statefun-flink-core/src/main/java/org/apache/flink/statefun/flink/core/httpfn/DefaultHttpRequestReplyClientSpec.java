@@ -18,8 +18,6 @@
 
 package org.apache.flink.statefun.flink.core.httpfn;
 
-import java.time.Duration;
-import java.util.Objects;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonSetter;
@@ -28,10 +26,26 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ObjectNode;
 
+import java.time.Duration;
+import java.util.Objects;
+import java.util.Optional;
+
 public final class DefaultHttpRequestReplyClientSpec {
 
   @JsonProperty("timeouts")
   private Timeouts timeouts = new Timeouts();
+
+  @JsonProperty("trust_cacerts")
+  private String trustCaCerts;
+
+  @JsonProperty("client_certs")
+  private String clientCerts;
+
+  @JsonProperty("client_key")
+  private String clientKey;
+
+  @JsonProperty("client_key_password")
+  private String clientKeyPassword;
 
   @JsonSetter("timeouts")
   public void setTimeouts(Timeouts timeouts) {
@@ -42,6 +56,54 @@ public final class DefaultHttpRequestReplyClientSpec {
 
   public Timeouts getTimeouts() {
     return timeouts;
+  }
+
+  public String getTrustCaCerts() {
+    return trustCaCerts;
+  }
+
+  public void setTrustCaCerts(String trustCaCerts) {
+    this.trustCaCerts = trustCaCerts;
+  }
+
+  public String getClientCerts() {
+    return clientCerts;
+  }
+
+  public void setClientCerts(String clientCerts) {
+    this.clientCerts = clientCerts;
+  }
+
+  public String getClientKey() {
+    return clientKey;
+  }
+
+  public void setClientKey(String clientKey) {
+    this.clientKey = clientKey;
+  }
+
+  public String getClientKeyPassword() {
+    return clientKeyPassword;
+  }
+
+  public void setClientKeyPassword(String clientKeyPassword) {
+    this.clientKeyPassword = clientKeyPassword;
+  }
+
+  public Optional<String> getTrustCaCertsOptional() {
+    return Optional.ofNullable(trustCaCerts);
+  }
+
+  public Optional<String> getClientCertsOptional() {
+    return Optional.ofNullable(clientCerts);
+  }
+
+  public Optional<String> getClientKeyOptional() {
+    return Optional.ofNullable(clientKey);
+  }
+
+  public Optional<String> getClientKeyPasswordOptional() {
+    return Optional.ofNullable(clientKeyPassword);
   }
 
   public ObjectNode toJson(ObjectMapper objectMapper) {
@@ -72,7 +134,8 @@ public final class DefaultHttpRequestReplyClientSpec {
   public static final class Timeouts {
 
     // default spec values
-    @VisibleForTesting public static final Duration DEFAULT_HTTP_TIMEOUT = Duration.ofMinutes(1);
+    @VisibleForTesting
+    public static final Duration DEFAULT_HTTP_TIMEOUT = Duration.ofMinutes(1);
 
     @VisibleForTesting
     public static final Duration DEFAULT_HTTP_CONNECT_TIMEOUT = Duration.ofSeconds(10);

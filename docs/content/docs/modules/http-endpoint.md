@@ -171,6 +171,10 @@ spec:
       connect: 20s
       read: 10s
       write: 10s
+    trust_cacerts: ~/trustedCAs.pem
+    client_certs: classpath:clientPublic.crt
+    client_key: ~/clientPrivate.key
+    client_key_password: changeme
 ```
 
 * `call`: The timeout for a complete function call. This configuration spans the entire call: resolving DNS, connecting,
@@ -179,6 +183,10 @@ spec:
 * `connect`: The default connect timeout for new connections. The connect timeout is applied when connecting a TCP socket to the target host. Default value is 10 seconds.
 * `read`: The default read timeout for new connections. The read timeout is applied to both the TCP socket and for individual read IO operations. Default value is 10 seconds.
 * `write`: The default write timeout for new connections. The write timeout is applied for individual write IO operations. Default value is 10 seconds.
+* `trust_cacerts`: Trusted public certificate authority certificates in a pem format. If none are provided, but the function uses https, the default jre truststore will be used. If you need to provide more than one CA cert, concat them with a newline in between. This can be taken from a classpath (e.g. classpath:file.pem) or a path.
+* `client_certs`: Client public certificate(s) used for mutual tls authentication. This can be taken from a classpath (e.g. classpath:file.crt) or a path
+* `client_key`: Client private key used for mutual tls authentication. This can be taken from a classpath (e.g. classpath:file.key) or a path
+* `client_key_password`: The password for the client key (if required)
 
 Alternatively, a transport client based on asynchronous non-blocking IO is supported:
 
@@ -191,6 +199,10 @@ spec:
     pool_ttl: 15s
     pool_size: 1024
     payload_max_bytes: 33554432
+    trust_cacerts: ~/trustedCAs.pem
+    client_certs: classpath:clientPublic.crt
+    client_key: ~/clientPrivate.key
+    client_key_password: changeme
 ```
 
 * `call`: total duration of a single request (including retries, and backoffs). After this duration, the call is considered failed.
@@ -198,6 +210,11 @@ spec:
 * `pool_ttl`: the amount of time a connection will live in the connection pool. Set to 0 to disable, otherwise the connection will be evicted from the pool after (approximately) that time. If a connection is evicted while it is serving a request, that connection will be only marked for eviction and will be dropped from the pool once the request returns.
 * `pool_size`: the maximum pool size.
 * `payload_max_bytes`: the maximum size for a request or response payload size. The default is set to 32MB.
+* `trust_cacerts`: Trusted public certificate authority certificates in a pem format. If none are provided, but the function uses https, the default jre truststore will be used. If you need to provide more than one CA cert, concat them with a newline in between. This can be taken from a classpath (e.g. classpath:file.pem) or a path.
+* `client_certs`: Client public certificate(s) used for mutual tls authentication. This can be taken from a classpath (e.g. classpath:file.crt) or a path
+* `client_key`: Client private key used for mutual tls authentication. This can be taken from a classpath (e.g. classpath:file.key) or a path
+* `client_key_password`: The password for the client key (if required)
+
 
 {{< hint info >}}
 We highly recommend setting `statefun.async.max-per-task` to a much higher value (see [Configurations]({{< ref "docs/deployment/configurations">}}))

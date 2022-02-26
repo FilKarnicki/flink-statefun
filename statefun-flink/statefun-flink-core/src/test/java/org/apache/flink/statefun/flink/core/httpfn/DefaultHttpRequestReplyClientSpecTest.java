@@ -1,8 +1,5 @@
 package org.apache.flink.statefun.flink.core.httpfn;
 
-import static org.junit.Assert.*;
-
-import java.time.Duration;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ObjectNode;
@@ -10,6 +7,12 @@ import org.apache.flink.statefun.flink.common.json.StateFunObjectMapper;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeDiagnosingMatcher;
 import org.junit.Test;
+
+import java.time.Duration;
+import java.util.stream.Stream;
+
+import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertThat;
 
 public class DefaultHttpRequestReplyClientSpecTest {
 
@@ -27,9 +30,16 @@ public class DefaultHttpRequestReplyClientSpecTest {
     timeouts.setReadTimeout(readTimeout);
     timeouts.setWriteTimeout(writeTimeout);
 
+    final String trustCaCerts = "classpath:certs/caCerts";
+    final String clientCerts = "file:certs/clientCerts";
+    final String clientKey = "/tmp/clients.pem";
+
     final DefaultHttpRequestReplyClientSpec defaultHttpRequestReplyClientSpec =
         new DefaultHttpRequestReplyClientSpec();
     defaultHttpRequestReplyClientSpec.setTimeouts(timeouts);
+    defaultHttpRequestReplyClientSpec.setTrustCaCerts(trustCaCerts);
+    defaultHttpRequestReplyClientSpec.setClientCerts(clientCerts);
+    defaultHttpRequestReplyClientSpec.setClientKey(clientKey);
 
     final ObjectMapper objectMapper = StateFunObjectMapper.create();
     final ObjectNode json = defaultHttpRequestReplyClientSpec.toJson(objectMapper);
@@ -38,6 +48,9 @@ public class DefaultHttpRequestReplyClientSpecTest {
         DefaultHttpRequestReplyClientSpec.fromJson(objectMapper, json);
 
     assertThat(deserializedHttpRequestReplyClientSpec.getTimeouts(), equalTimeouts(timeouts));
+    assertThat(deserializedHttpRequestReplyClientSpec.getTrustCaCerts(), is(trustCaCerts));
+    assertThat(deserializedHttpRequestReplyClientSpec.getClientCerts(), is(clientCerts));
+    assertThat(deserializedHttpRequestReplyClientSpec.getClientKey(), is(clientKey));
   }
 
   private static TypeSafeDiagnosingMatcher<DefaultHttpRequestReplyClientSpec.Timeouts>
@@ -56,45 +69,20 @@ public class DefaultHttpRequestReplyClientSpecTest {
     @Override
     protected boolean matchesSafely(
         DefaultHttpRequestReplyClientSpec.Timeouts timeouts, Description description) {
-      boolean matching = true;
 
-      if (!timeouts.getCallTimeout().equals(expected.getCallTimeout())) {
-        description
-            .appendText("expected ")
-            .appendValue(expected.getCallTimeout())
-            .appendText(" found ")
-            .appendValue(timeouts.getCallTimeout());
-        matching = false;
+      return Stream.of(isMatching(expected.getCallTimeout(), timeouts.getCallTimeout(), description),
+              isMatching(expected.getReadTimeout(), timeouts.getReadTimeout(), description),
+              isMatching(expected.getWriteTimeout(), timeouts.getWriteTimeout(), description),
+              isMatching(expected.getConnectTimeout(), timeouts.getConnectTimeout(), description))
+          .allMatch(partialResult -> partialResult);
+    }
+
+    private boolean isMatching(Duration expected, Duration actual, Description description) {
+      if (!actual.equals(expected)) {
+        description.appendText("expected ").appendValue(expected).appendText(" found ").appendValue(actual);
+        return false;
       }
-
-      if (!timeouts.getReadTimeout().equals(expected.getReadTimeout())) {
-        description
-            .appendText("expected ")
-            .appendValue(expected.getReadTimeout())
-            .appendText(" found ")
-            .appendValue(timeouts.getReadTimeout());
-        matching = false;
-      }
-
-      if (!timeouts.getWriteTimeout().equals(expected.getWriteTimeout())) {
-        description
-            .appendText("expected ")
-            .appendValue(expected.getWriteTimeout())
-            .appendText(" found ")
-            .appendValue(timeouts.getWriteTimeout());
-        matching = false;
-      }
-
-      if (!timeouts.getConnectTimeout().equals(expected.getConnectTimeout())) {
-        description
-            .appendText("expected ")
-            .appendValue(expected.getConnectTimeout())
-            .appendText(" found ")
-            .appendValue(timeouts.getConnectTimeout());
-        matching = false;
-      }
-
-      return matching;
+      return true;
     }
 
     @Override
