@@ -134,7 +134,9 @@ public final class DefaultHttpRequestReplyClientFactory implements RequestReplyC
                                                      Optional<String> maybeKeyPassword) {
     Optional<X509ExtendedTrustManager> maybeTrustManager =
         maybeTrustCaCerts.map(trustedCaCertsLocation ->
-            PemUtils.loadTrustMaterial(openStreamOrThrow(ResourceLocator.findNamedResource(trustedCaCertsLocation))));
+            PemUtils.loadTrustMaterial(openStreamOrThrow(
+                Optional.ofNullable(ResourceLocator.findNamedResource(trustedCaCertsLocation))
+                    .orElseThrow(() -> new IllegalStateException(String.format("Resource %s not found", trustedCaCertsLocation))))));
 
     if (maybeClientCerts.isPresent() && !maybeClientKey.isPresent()) {
       throw new IllegalStateException("You provided a client cert, but not a client key. Cannot continue.");
@@ -146,8 +148,12 @@ public final class DefaultHttpRequestReplyClientFactory implements RequestReplyC
     Optional<X509ExtendedKeyManager> maybeKeyManager =
         maybeClientCerts.flatMap(clientCertLocation ->
             maybeClientKey.map(clientKeyLocation -> {
-              InputStream clientCertInputStream = openStreamOrThrow(ResourceLocator.findNamedResource(clientCertLocation));
-              InputStream clientKeyInputStream = openStreamOrThrow(ResourceLocator.findNamedResource(clientKeyLocation));
+              Optional<URL> maybeClientKeyLocationUrl = Optional.ofNullable(ResourceLocator.findNamedResource(clientKeyLocation));
+              Optional<URL> maybeCertLocationUrl = Optional.ofNullable(ResourceLocator.findNamedResource(clientCertLocation));
+              InputStream clientKeyInputStream = openStreamOrThrow(maybeClientKeyLocationUrl
+                  .orElseThrow(() -> new IllegalStateException(String.format("Resource %s not found", clientKeyLocation))));
+              InputStream clientCertInputStream = openStreamOrThrow(maybeCertLocationUrl
+                  .orElseThrow(() -> new IllegalStateException(String.format("Resource %s not found", clientCertLocation))));
 
               if (maybeKeyPassword.isPresent()) {
                 return PemUtils.loadIdentityMaterial(clientCertInputStream, clientKeyInputStream, maybeKeyPassword.get().toCharArray());

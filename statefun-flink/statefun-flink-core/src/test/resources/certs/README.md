@@ -131,6 +131,7 @@ subjectAltName = @alt_names
 
 [alt_names]
 DNS.1 = localhost
+DNS.2 = remote-function-host
 ```
 
 ## 5. create certificates using our CSR, CA private keys, CA certificates and config files

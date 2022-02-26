@@ -170,6 +170,15 @@ public class NettyClientTest extends TransportClientTest {
             portInfo.getHttpsServerTlsOnlyPort()));
   }
 
+  @Override
+  protected boolean callWithNonExistentCerts() throws Throwable {
+    return callUsingStubsAndCheckSuccess(
+        createNettyClient(
+            createSpec("classpath:" + "DEFINITELY_NON_EXISTENT", null, null, null),
+            "https",
+            portInfo.getHttpsServerTlsOnlyPort()));
+  }
+
   private NettyClientWithResultStatusCodeFuture createNettyClient(NettyRequestReplySpec spec, String protocol, int port) {
     CompletableFuture<Integer> statusCodeFuture = new CompletableFuture<>();
     NettyClient nettyClient = NettyClient.from(

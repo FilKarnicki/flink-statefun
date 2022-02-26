@@ -115,6 +115,11 @@ public abstract class TransportClientTest {
     assertFalse(callWithNoCertGivenButRequired());
   }
 
+  @Test(expected = IllegalStateException.class)
+  public void callingTestHttpServerWithNonExistentCertsShouldFail() throws Throwable {
+    assertFalse(callWithNonExistentCerts());
+  }
+
   public abstract boolean call() throws Throwable;
 
   protected abstract boolean callHttpsWithoutAnyTlsSetup() throws Throwable;
@@ -134,6 +139,8 @@ public abstract class TransportClientTest {
   public abstract boolean callWithNoCertGivenButRequired() throws Throwable;
 
   public abstract boolean callWithJustServerSideTls() throws Throwable;
+
+  protected abstract boolean callWithNonExistentCerts() throws Throwable;
 
   public static class FromFunctionNettyTestServer {
     private EventLoopGroup eventLoopGroup;

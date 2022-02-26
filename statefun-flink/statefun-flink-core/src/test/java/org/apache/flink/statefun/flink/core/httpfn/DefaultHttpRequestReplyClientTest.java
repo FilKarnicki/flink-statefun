@@ -168,6 +168,16 @@ public class DefaultHttpRequestReplyClientTest extends TransportClientTest {
         .isSuccessful();
   }
 
+  @Override
+  protected boolean callWithNonExistentCerts() throws Throwable {
+    final DefaultHttpRequestReplyClientSpec spec = new DefaultHttpRequestReplyClientSpec();
+    spec.setTrustCaCerts("classpath:" + "DEFINITELY_NON_EXISTENT");
+
+    return callWithStubs(buildClient(spec, "https", portInfo.getHttpsServerTlsOnlyPort()))
+        .execute()
+        .isSuccessful();
+  }
+
   private static Call callWithStubs(DefaultHttpRequestReplyClient defaultHttpRequestReplyClient) {
     return defaultHttpRequestReplyClient.callOnce(getEmptyToFunction());
   }
