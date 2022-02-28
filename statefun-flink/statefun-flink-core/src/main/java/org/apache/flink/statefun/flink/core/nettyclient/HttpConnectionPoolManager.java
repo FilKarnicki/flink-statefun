@@ -29,21 +29,22 @@ import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslHandler;
 
 import javax.annotation.Nullable;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 final class HttpConnectionPoolManager implements ChannelPoolHandler {
   private final NettyRequestReplySpec spec;
   private final SslContext sslContext;
   private final String peerHost;
   private final int peerPort;
-  private final ChannelDuplexHandler requestReplyHandler;
+  private final Supplier<ChannelDuplexHandler> requestReplyHandlerSupplier;
 
   public HttpConnectionPoolManager(
-      @Nullable SslContext sslContext, NettyRequestReplySpec spec, String peerHost, int peerPort, ChannelDuplexHandler requestReplyHandler) {
+      @Nullable SslContext sslContext, NettyRequestReplySpec spec, String peerHost, int peerPort, Supplier<ChannelDuplexHandler> requestReplyHandlerSupplier) {
     this.spec = Objects.requireNonNull(spec);
     this.peerHost = Objects.requireNonNull(peerHost);
     this.sslContext = sslContext;
     this.peerPort = peerPort;
-    this.requestReplyHandler = requestReplyHandler;
+    this.requestReplyHandlerSupplier = requestReplyHandlerSupplier;
   }
 
   @Override
@@ -68,7 +69,7 @@ final class HttpConnectionPoolManager implements ChannelPoolHandler {
     p.addLast(new HttpClientCodec());
     p.addLast(new HttpContentDecompressor(true));
     p.addLast(new HttpObjectAggregator(spec.maxRequestOrResponseSizeInBytes, true));
-    p.addLast(requestReplyHandler);
+    p.addLast(requestReplyHandlerSupplier.get());
 
     long channelTimeToLiveMillis = spec.pooledConnectionTTL.toMillis();
     p.addLast(new HttpConnectionPoolHandler(channelTimeToLiveMillis));

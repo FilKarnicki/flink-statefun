@@ -45,6 +45,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 
 import static org.apache.flink.shaded.netty4.io.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS;
 
@@ -58,11 +59,11 @@ final class NettyClient implements RequestReplyClient, NettyClientService {
 
   public static NettyClient from(
       NettySharedResources shared, NettyRequestReplySpec spec, URI endpointUrl) {
-    return from(shared, spec, endpointUrl, new NettyRequestReplyHandler());
+    return from(shared, spec, endpointUrl, NettyRequestReplyHandler::new);
   }
 
   static NettyClient from(
-      NettySharedResources shared, NettyRequestReplySpec spec, URI endpointUrl, ChannelDuplexHandler nettyRequestReplyHandler) {
+      NettySharedResources shared, NettyRequestReplySpec spec, URI endpointUrl, Supplier<ChannelDuplexHandler> nettyRequestReplyHandlerSupplier) {
     Endpoint endpoint = new Endpoint(endpointUrl);
     long totalRequestBudgetInNanos = spec.callTimeout.toNanos();
     ReadOnlyHttpHeaders headers = NettyHeaders.defaultHeadersFor(endpoint.serviceAddress());
@@ -81,7 +82,7 @@ final class NettyClient implements RequestReplyClient, NettyClientService {
             spec,
             endpoint.serviceAddress().getHostString(),
             endpoint.serviceAddress().getPort(),
-            nettyRequestReplyHandler);
+            nettyRequestReplyHandlerSupplier);
     // setup a fixed capacity channel pool
     FixedChannelPool pool =
         new FixedChannelPool(

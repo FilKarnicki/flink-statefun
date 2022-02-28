@@ -185,7 +185,7 @@ public class NettyClientTest extends TransportClientTest {
         new NettySharedResources(),
         spec,
         URI.create(String.format("%s://localhost:%s", protocol, port)),
-        new ChannelDuplexHandler() {
+        () -> new ChannelDuplexHandler() {
           @Override
           public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
             statusCodeFuture.completeExceptionally(cause);

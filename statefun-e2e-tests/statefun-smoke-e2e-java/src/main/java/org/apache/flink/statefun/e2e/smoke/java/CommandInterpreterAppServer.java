@@ -46,9 +46,9 @@ public class CommandInterpreterAppServer {
 
     final RequestReplyHandler requestReplyHandler = functions.requestReplyHandler();
 
-    final InputStream trustedCaCerts = Objects.requireNonNull(CommandInterpreter.class.getClassLoader().getResource("a_ca.pem")).openStream();
-    final InputStream aServerCert = Objects.requireNonNull(CommandInterpreter.class.getClassLoader().getResource("a_server.crt")).openStream();
-    final InputStream aServerKey = Objects.requireNonNull(CommandInterpreter.class.getClassLoader().getResource("a_server.key")).openStream();
+    final InputStream trustedCaCerts = Objects.requireNonNull(CommandInterpreter.class.getClassLoader().getResource("certs/a_ca.pem")).openStream();
+    final InputStream aServerCert = Objects.requireNonNull(CommandInterpreter.class.getClassLoader().getResource("certs/a_server.crt")).openStream();
+    final InputStream aServerKey = Objects.requireNonNull(CommandInterpreter.class.getClassLoader().getResource("certs/a_server.key")).openStream();
     final SSLFactory sslFactory = SSLFactory.builder()
         .withTrustMaterial(PemUtils.loadTrustMaterial(trustedCaCerts))
         .withIdentityMaterial(PemUtils.loadIdentityMaterial(aServerCert, aServerKey, "test".toCharArray()))
