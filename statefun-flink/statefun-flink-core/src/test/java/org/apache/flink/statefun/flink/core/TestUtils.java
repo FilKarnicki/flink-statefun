@@ -27,10 +27,6 @@ import org.apache.flink.statefun.flink.core.message.MessageFactoryType;
 import org.apache.flink.statefun.sdk.Address;
 import org.apache.flink.statefun.sdk.FunctionType;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
-
 @SuppressWarnings("WeakerAccess")
 public class TestUtils {
 
