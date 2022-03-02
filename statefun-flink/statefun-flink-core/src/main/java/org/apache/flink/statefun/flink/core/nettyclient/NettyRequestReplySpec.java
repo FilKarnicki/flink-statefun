@@ -37,7 +37,7 @@ public final class NettyRequestReplySpec {
   public static final String CONNECTION_POOL_MAX_SIZE_PROPERTY = "pool_size";
   public static final String MAX_REQUEST_OR_RESPONSE_SIZE_IN_BYTES_PROPERTY = "payload_max_bytes";
   public static final String TRUST_CA_CERTS_PROPERTY = "trust_cacerts";
-  public static final String CLIENT_CERTS_PROPERTY = "client_certs";
+  public static final String CLIENT_CERT_PROPERTY = "client_cert";
   public static final String CLIENT_KEY_PROPERTY = "client_key";
   public static final String CLIENT_KEY_PASSWORD_PROPERTY = "client_key_password";
   public static final String TIMEOUTS_PROPERTY = "timeouts";
@@ -73,7 +73,7 @@ public final class NettyRequestReplySpec {
       @JsonProperty(MAX_REQUEST_OR_RESPONSE_SIZE_IN_BYTES_PROPERTY)
           Integer maxRequestOrResponseSizeInBytes,
       @JsonProperty(TRUST_CA_CERTS_PROPERTY) String trustedCaCerts,
-      @JsonProperty(CLIENT_CERTS_PROPERTY) String clientCerts,
+      @JsonProperty(CLIENT_CERT_PROPERTY) String clientCerts,
       @JsonProperty(CLIENT_KEY_PROPERTY) String clientKey,
       @JsonProperty(CLIENT_KEY_PASSWORD_PROPERTY) String clientKeyPassword,
       @JsonProperty(TIMEOUTS_PROPERTY) Timeouts timeouts) {

@@ -91,6 +91,7 @@ under the License.
             <artifactId>junixsocket-core</artifactId>
             <version>${unixsocket.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-shaded-netty</artifactId>

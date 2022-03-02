@@ -41,7 +41,7 @@ public class DefaultHttpRequestReplyClientSpecTest {
   }
 
   private static TypeSafeDiagnosingMatcher<DefaultHttpRequestReplyClientSpec.Timeouts>
-  equalTimeouts(DefaultHttpRequestReplyClientSpec.Timeouts timeouts) {
+      equalTimeouts(DefaultHttpRequestReplyClientSpec.Timeouts timeouts) {
     return new TimeoutsEqualityMatcher(timeouts);
   }
 

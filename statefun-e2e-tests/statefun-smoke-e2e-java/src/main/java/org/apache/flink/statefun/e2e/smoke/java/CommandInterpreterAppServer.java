@@ -41,13 +41,12 @@ import java.util.concurrent.CompletableFuture;
 import static org.apache.flink.statefun.e2e.smoke.java.Constants.CMD_INTERPRETER_FN;
 
 public class CommandInterpreterAppServer {
+  private static final int PORT = 8000;
   private static final CommandInterpreter commandInterpreter = new CommandInterpreter();
-  private static StatefulFunctionSpec FN_SPEC = StatefulFunctionSpec.builder(CMD_INTERPRETER_FN)
+  private static final StatefulFunctionSpec FN_SPEC = StatefulFunctionSpec.builder(CMD_INTERPRETER_FN)
       .withSupplier(() -> new CommandInterpreterFn(commandInterpreter))
       .withValueSpec(CommandInterpreterFn.STATE)
       .build();
-
-  public static final int PORT = 8000;
 
   public static void main(String[] args) throws IOException, InterruptedException {
     final InputStream trustCaCerts = Objects.requireNonNull(CommandInterpreter.class.getClassLoader().getResource("certs/a_ca.pem")).openStream();

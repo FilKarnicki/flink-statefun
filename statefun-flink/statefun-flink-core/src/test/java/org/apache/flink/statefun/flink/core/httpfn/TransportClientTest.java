@@ -57,6 +57,7 @@ public abstract class TransportClientTest {
   protected static final String A_SIGNED_SERVER_KEY_LOCATION = "certs/a_server.key.p8";
   protected static final String B_CA_CERTS_LOCATION = "certs/b_caCerts.pem";
   protected static final String B_SIGNED_CLIENT_CERT_LOCATION = "certs/b_client.crt";
+  protected static final String A_PLUS_B_SIGNED_CLIENT_CERT_LOCATION = "certs/a_b_client_concat.crt";
   protected static final String B_SIGNED_CLIENT_KEY_LOCATION = "certs/b_client.key.p8";
   protected static final String C_SIGNED_CLIENT_CERT_LOCATION = "certs/c_client.crt";
   protected static final String C_SIGNED_CLIENT_KEY_LOCATION = "certs/c_client.key.p8";
@@ -68,13 +69,6 @@ public abstract class TransportClientTest {
   public static class FromFunctionNettyTestServer {
     private EventLoopGroup eventLoopGroup;
     private EventLoopGroup workerGroup;
-
-    public static void main(String[] args) {
-      PortInfo portInfo = new FromFunctionNettyTestServer().runAndGetPortInfo();
-      System.out.println(portInfo.httpPort);
-      System.out.println(portInfo.httpsMutualTlsRequiredPort);
-      System.out.println(portInfo.httpsServerTlsOnlyPort);
-    }
 
     public static FromFunction getStubFromFunction() {
       return FromFunction.newBuilder()

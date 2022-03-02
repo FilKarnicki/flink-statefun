@@ -40,7 +40,6 @@ import static org.apache.flink.statefun.flink.core.httpfn.TransportClientTest.Fr
 import static org.apache.flink.statefun.flink.core.nettyclient.NettyProtobuf.serializeProtobuf;
 import static org.junit.Assert.*;
 
-/** This class runs @Test scenarios defined in the parent - {@link TransportClientTest} */
 public class NettyClientTest extends TransportClientTest {
   private static FromFunctionNettyTestServer testServer;
   private static FromFunctionNettyTestServer.PortInfo portInfo;

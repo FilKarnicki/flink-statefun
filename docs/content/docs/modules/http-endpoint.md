@@ -192,7 +192,7 @@ spec:
     pool_size: 1024
     payload_max_bytes: 33554432
     trust_cacerts: ~/trustedCAs.pem
-    client_certs: classpath:clientPublic.crt
+    client_cert: classpath:clientPublic.crt
     client_key: ~/clientPrivate.key
     client_key_password: changeme
 ```
@@ -203,7 +203,7 @@ spec:
 * `pool_size`: the maximum pool size.
 * `payload_max_bytes`: the maximum size for a request or response payload size. The default is set to 32MB.
 * `trust_cacerts`: Trusted public certificate authority certificates in a pem format. If none are provided, but the function uses https, the default jre truststore will be used. If you need to provide more than one CA cert, concat them with a newline in between. This can be taken from a classpath (e.g. classpath:file.pem) or a path.
-* `client_certs`: Client public certificate(s) used for mutual tls authentication. This can be taken from a classpath (e.g. classpath:file.crt) or a path
+* `client_cert`: Client public certificate used for mutual tls authentication. This can be taken from a classpath (e.g. classpath:file.crt) or a path
 * `client_key`: PKCS8 client private key used for mutual tls authentication. This can be taken from a classpath (e.g. classpath:file.key) or a path
 * `client_key_password`: The password for the client key (if required)
 
