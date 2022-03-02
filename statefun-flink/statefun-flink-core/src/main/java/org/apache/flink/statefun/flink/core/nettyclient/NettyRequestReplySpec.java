@@ -17,15 +17,16 @@
  */
 package org.apache.flink.statefun.flink.core.nettyclient;
 
-import static java.util.Optional.ofNullable;
+import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonSetter;
 
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
-import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonProperty;
-import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonSetter;
+
+import static java.util.Optional.ofNullable;
 
 public final class NettyRequestReplySpec {
 
@@ -45,13 +46,11 @@ public final class NettyRequestReplySpec {
   @VisibleForTesting public static final Duration DEFAULT_CALL_TIMEOUT = Duration.ofMinutes(2);
   @VisibleForTesting public static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(20);
 
-  @VisibleForTesting
-  public static final Duration DEFAULT_POOLED_CONNECTION_TTL = Duration.ofSeconds(15);
+  @VisibleForTesting public static final Duration DEFAULT_POOLED_CONNECTION_TTL = Duration.ofSeconds(15);
 
   @VisibleForTesting public static final int DEFAULT_CONNECTION_POOL_MAX_SIZE = 1024;
 
-  @VisibleForTesting
-  public static final int DEFAULT_MAX_REQUEST_OR_RESPONSE_SIZE_IN_BYTES = 32 * 1048576;
+  @VisibleForTesting public static final int DEFAULT_MAX_REQUEST_OR_RESPONSE_SIZE_IN_BYTES = 32 * 1048576;
 
   // spec values
   public final Duration callTimeout;
