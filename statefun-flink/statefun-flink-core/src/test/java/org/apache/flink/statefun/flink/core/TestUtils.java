@@ -24,6 +24,10 @@ import org.apache.flink.statefun.flink.core.message.MessageFactoryType;
 import org.apache.flink.statefun.sdk.Address;
 import org.apache.flink.statefun.sdk.FunctionType;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+
 @SuppressWarnings("WeakerAccess")
 public class TestUtils {
 
@@ -35,4 +39,18 @@ public class TestUtils {
   public static final Address FUNCTION_2_ADDR = new Address(FUNCTION_TYPE, "a-2");
   public static final EnvelopeAddress DUMMY_PAYLOAD =
       EnvelopeAddress.newBuilder().setNamespace("com.foo").setType("greet").setId("user-1").build();
+
+  /**
+   * Opens a stream of throws an exception. Does *not* close the stream
+   *
+   * @param url of the resource to open
+   * @return opened input stream
+   */
+  public static InputStream openStreamOrThrow(URL url) {
+    try {
+      return url.openStream();
+    } catch (IOException e) {
+      throw new IllegalStateException("Could not open " + url.getPath(), e);
+    }
+  }
 }
