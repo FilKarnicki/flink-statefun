@@ -4,13 +4,13 @@ There are three certificate authorities: `a`, `b` and `c`. Each sign a client ce
 
 There are three sets of client cert and key files
 
-1. `a_client.crt` - signed by CA `a`, and its private key `a_client.key`, the latter of which has password of `test`
-2. `b_client.crt` - signed by CA `b`, and its private key `b_client.key`, the latter of which has password of `test`
-3. `c_client.crt` - signed by CA `c`, and its private key `c_client.key`, the latter of which does not require a password
+1. `a_client.crt` - signed by CA `a`, and its private key `a_client.key.p8.`, the latter of which has password of `test`
+2. `b_client.crt` - signed by CA `b`, and its private key `b_client.key.p8`, the latter of which has password of `test`
+3. `c_client.crt` - signed by CA `c`, and its private key `c_client.key.p8`, the latter of which does not require a password
 
 There is one server cert and key file
 
-1. `a_server.crt` - signed by CA `a`, and its private key `a_server.key`, the latter of which has password of `test`
+1. `a_server.crt` - signed by CA `a`, and its private key `a_server.key.p8`, the latter of which has password of `test`
 
 There are two trusted CA files
 
@@ -26,9 +26,6 @@ A test server `a` is launched with a truststore containing CAs `a` and `c`
 | c      | a      | yes                 |
 
 # Steps for re-creating the files in this folder
-
-// todo FLINK-25866: remove client and server c
-
 ## 1. create private keys for 3 separate certificate authorities
 
 ```shell 
