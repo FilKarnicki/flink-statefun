@@ -84,7 +84,6 @@ under the License.
         <scala.version>2.12.7</scala.version>
         <lz4-java.version>1.8.0</lz4-java.version>
         <flink-shaded-jackson.version>2.12.4-14.0</flink-shaded-jackson.version>
-        <sslcontext-kickstart.version>7.2.1</sslcontext-kickstart.version>
         <test.unit.pattern>**/*Test.*</test.unit.pattern>
     </properties>
 

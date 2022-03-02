@@ -92,17 +92,6 @@ under the License.
             <version>${unixsocket.version}</version>
         </dependency>
         <dependency>
-            <groupId>io.github.hakky54</groupId>
-            <artifactId>sslcontext-kickstart-for-pem</artifactId>
-            <version>${sslcontext-kickstart.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-api</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-shaded-netty</artifactId>
             <version>${flink-shaded-netty.version}</version>

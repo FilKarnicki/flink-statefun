@@ -19,7 +19,8 @@ spec:
   urlPathTemplate: https://remote-function-host:8000
   maxNumBatchRequests: 10000
   transport:
+    type: io.statefun.transports.v1/async
     trust_cacerts: file:/opt/statefun/modules/statefun-smoke-e2e/certs/a_ca.pem
     client_certs: file:/opt/statefun/modules/statefun-smoke-e2e/certs/a_client.crt
-    client_key: file:/opt/statefun/modules/statefun-smoke-e2e/certs/a_client.key
+    client_key: file:/opt/statefun/modules/statefun-smoke-e2e/certs/a_client.key.p8
     client_key_password: test

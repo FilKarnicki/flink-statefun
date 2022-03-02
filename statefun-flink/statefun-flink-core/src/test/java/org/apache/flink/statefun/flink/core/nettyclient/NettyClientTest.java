@@ -26,7 +26,9 @@ import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.*;
 import org.apache.flink.statefun.flink.core.httpfn.TransportClientTest;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Test;
 
+import javax.net.ssl.SSLException;
 import java.net.URI;
 import java.net.URL;
 import java.time.Duration;
@@ -36,7 +38,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.statefun.flink.core.httpfn.TransportClientTest.FromFunctionNettyTestServer.*;
 import static org.apache.flink.statefun.flink.core.nettyclient.NettyProtobuf.serializeProtobuf;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 
 /** This class runs @Test scenarios defined in the parent - {@link TransportClientTest} */
 public class NettyClientTest extends TransportClientTest {
@@ -54,38 +56,42 @@ public class NettyClientTest extends TransportClientTest {
     testServer.close();
   }
 
-  @Override
-  public boolean call() throws Throwable {
-    return callUsingStubsAndCheckSuccess(createNettyClient(createHttpSpec(), "http", portInfo.getHttpPort()));
+
+  @Test
+  public void callingTestHttpServiceShouldSucceed() throws Throwable {
+    assertTrue(
+        TLS_FAILURE_MESSAGE,
+        callUsingStubsAndCheckSuccess(createNettyClient(createHttpSpec(), "http", portInfo.getHttpPort())));
   }
 
-  @Override
-  public boolean callWithTlsFromClasspath() throws Throwable {
-    return callUsingStubsAndCheckSuccess(
-        createNettyClient(
-            createSpec("classpath:" + A_CA_CERTS_LOCATION,
-                "classpath:" + A_SIGNED_CLIENT_CERT_LOCATION,
-                "classpath:" + A_SIGNED_CLIENT_KEY_LOCATION,
-                A_SIGNED_CLIENT_KEY_PASSWORD),
-            "https",
-            portInfo.getHttpsMutualTlsRequiredPort()));
+  @Test
+  public void callingTestHttpServiceUsingHttpsWithoutCaCertsShouldUseDefaultTruststore() throws Throwable {
+    assertTrue(
+        TLS_FAILURE_MESSAGE,
+        callUsingStubsAndCheckSuccess(
+            createNettyClient(
+                createHttpSpec(),
+                "https",
+                portInfo.getHttpsServerTlsOnlyPort())));
   }
 
-  @Override
-  public boolean callWithTlsFromClasspathWithoutKeyPassword() throws Throwable {
-    return callUsingStubsAndCheckSuccess(
-        createNettyClient(
-            createSpec(
-                "classpath:" + A_CA_CERTS_LOCATION,
-                "classpath:" + C_SIGNED_CLIENT_CERT_LOCATION,
-                "classpath:" + C_SIGNED_CLIENT_KEY_LOCATION,
-                null),
-            "https",
-            portInfo.getHttpsMutualTlsRequiredPort()));
+  @Test
+  public void callingTestHttpServiceUsingHttpsWithOnlyClientSetupShouldUseDefaultTruststoreAndSucceed() throws Throwable {
+    assertTrue(
+        TLS_FAILURE_MESSAGE,
+        callUsingStubsAndCheckSuccess(
+            createNettyClient(
+                createSpec(
+                    null,
+                    "classpath:" + A_SIGNED_CLIENT_CERT_LOCATION,
+                    "classpath:" + A_SIGNED_CLIENT_KEY_LOCATION,
+                    A_SIGNED_CLIENT_KEY_PASSWORD),
+                "https",
+                portInfo.getHttpsMutualTlsRequiredPort())));
   }
 
-  @Override
-  public boolean callWithTlsFromPath() throws Throwable {
+  @Test
+  public void callingTestHttpServiceWithTlsFromPathShouldSucceed() throws Throwable {
     URL caCertsUrl = getClass().getClassLoader().getResource(A_CA_CERTS_LOCATION);
     URL clientCertUrl = getClass().getClassLoader().getResource(A_SIGNED_CLIENT_CERT_LOCATION);
     URL clientKeyUrl = getClass().getClassLoader().getResource(A_SIGNED_CLIENT_KEY_LOCATION);
@@ -93,90 +99,109 @@ public class NettyClientTest extends TransportClientTest {
     assertNotNull(clientCertUrl);
     assertNotNull(clientKeyUrl);
 
-    return callUsingStubsAndCheckSuccess(
-        createNettyClient(
-            createSpec(
-                caCertsUrl.getPath(),
-                clientCertUrl.getPath(),
-                clientKeyUrl.getPath(),
-                A_SIGNED_CLIENT_KEY_PASSWORD),
-            "https",
-            portInfo.getHttpsMutualTlsRequiredPort()));
+    assertTrue(
+        TLS_FAILURE_MESSAGE,
+        callUsingStubsAndCheckSuccess(
+            createNettyClient(
+                createSpec(
+                    caCertsUrl.getPath(),
+                    clientCertUrl.getPath(),
+                    clientKeyUrl.getPath(),
+                    A_SIGNED_CLIENT_KEY_PASSWORD),
+                "https",
+                portInfo.getHttpsMutualTlsRequiredPort())));
   }
 
-  @Override
-  public boolean callHttpsWithoutAnyTlsSetup() throws Throwable {
-    return callUsingStubsAndCheckSuccess(
-        createNettyClient(
-            createHttpSpec(),
-            "https",
-            portInfo.getHttpsServerTlsOnlyPort()));
+  @Test
+  public void callingTestHttpServiceWithTlsFromClasspathShouldSucceed() throws Throwable {
+    assertTrue(
+        TLS_FAILURE_MESSAGE,
+        callUsingStubsAndCheckSuccess(
+            createNettyClient(
+                createSpec("classpath:" + A_CA_CERTS_LOCATION,
+                    "classpath:" + A_SIGNED_CLIENT_CERT_LOCATION,
+                    "classpath:" + A_SIGNED_CLIENT_KEY_LOCATION,
+                    A_SIGNED_CLIENT_KEY_PASSWORD),
+                "https",
+                portInfo.getHttpsMutualTlsRequiredPort())));
   }
 
-  @Override
-  protected boolean callHttpsWithOnlyClientSetup() throws Throwable {
-    return callUsingStubsAndCheckSuccess(
-        createNettyClient(
-            createSpec(
-                null,
-                "classpath:" + A_SIGNED_CLIENT_CERT_LOCATION,
-                "classpath:" + A_SIGNED_CLIENT_KEY_LOCATION,
-                A_SIGNED_CLIENT_KEY_PASSWORD),
-            "https",
-            portInfo.getHttpsMutualTlsRequiredPort()));
+  @Test
+  public void callingTestHttpServiceWithTlsUsingKeyWithoutPasswordShouldSucceed() throws Throwable {
+    assertTrue(
+        TLS_FAILURE_MESSAGE,
+        callUsingStubsAndCheckSuccess(
+            createNettyClient(
+                createSpec(
+                    "classpath:" + A_CA_CERTS_LOCATION,
+                    "classpath:" + C_SIGNED_CLIENT_CERT_LOCATION,
+                    "classpath:" + C_SIGNED_CLIENT_KEY_LOCATION,
+                    null),
+                "https",
+                portInfo.getHttpsMutualTlsRequiredPort())));
   }
 
-  @Override
-  public boolean callWithUntrustedTlsClient() throws Throwable {
-    return callUsingStubsAndCheckSuccess(
-        createNettyClient(
-            createSpec(
-                "classpath:" + A_CA_CERTS_LOCATION,
-                "classpath:" + B_SIGNED_CLIENT_CERT_LOCATION,
-                "classpath:" + B_SIGNED_CLIENT_KEY_LOCATION,
-                B_SIGNED_CLIENT_KEY_PASSWORD),
-            "https",
-            portInfo.getHttpsMutualTlsRequiredPort()));
+  @Test
+  public void callingTestHttpServiceWithJustServerSideTlsShouldSucceed() throws Throwable {
+    assertTrue(
+        TLS_FAILURE_MESSAGE,
+        callUsingStubsAndCheckSuccess(
+            createNettyClient(
+                createSpec("classpath:" + A_CA_CERTS_LOCATION, null, null, null),
+                "https",
+                portInfo.getHttpsServerTlsOnlyPort())));
   }
 
-  @Override
-  public boolean callUntrustedServerWithTlsClient() throws Throwable {
-    return callUsingStubsAndCheckSuccess(
-        createNettyClient(
-            createSpec(
-                "classpath:" + B_CA_CERTS_LOCATION,
-                "classpath:" + A_SIGNED_CLIENT_CERT_LOCATION,
-                "classpath:" + A_SIGNED_CLIENT_KEY_LOCATION,
-                A_SIGNED_CLIENT_KEY_PASSWORD),
-            "https",
-            portInfo.getHttpsMutualTlsRequiredPort()));
+  @Test(expected = SSLException.class)
+  public void callingTestHttpServiceWithUntrustedTlsClientShouldFail() throws Throwable {
+    assertFalse(
+        TLS_FAILURE_MESSAGE,
+        callUsingStubsAndCheckSuccess(
+            createNettyClient(
+                createSpec(
+                    "classpath:" + A_CA_CERTS_LOCATION,
+                    "classpath:" + B_SIGNED_CLIENT_CERT_LOCATION,
+                    "classpath:" + B_SIGNED_CLIENT_KEY_LOCATION,
+                    B_SIGNED_CLIENT_KEY_PASSWORD),
+                "https",
+                portInfo.getHttpsMutualTlsRequiredPort())));
   }
 
-  @Override
-  public boolean callWithNoCertGivenButRequired() throws Throwable {
-    return callUsingStubsAndCheckSuccess(
-        createNettyClient(
-            createSpec("classpath:" + A_CA_CERTS_LOCATION, null, null, null),
-            "https",
-            portInfo.getHttpsMutualTlsRequiredPort()));
+  @Test(expected = SSLException.class)
+  public void callingAnUntrustedTestHttpServiceWithTlsClientShouldFail() throws Throwable {
+    assertFalse(
+        TLS_FAILURE_MESSAGE,
+        callUsingStubsAndCheckSuccess(
+            createNettyClient(
+                createSpec(
+                    "classpath:" + B_CA_CERTS_LOCATION,
+                    "classpath:" + A_SIGNED_CLIENT_CERT_LOCATION,
+                    "classpath:" + A_SIGNED_CLIENT_KEY_LOCATION,
+                    A_SIGNED_CLIENT_KEY_PASSWORD),
+                "https",
+                portInfo.getHttpsMutualTlsRequiredPort())));
   }
 
-  @Override
-  public boolean callWithJustServerSideTls() throws Throwable {
-    return callUsingStubsAndCheckSuccess(
-        createNettyClient(
-            createSpec("classpath:" + A_CA_CERTS_LOCATION, null, null, null),
-            "https",
-            portInfo.getHttpsServerTlsOnlyPort()));
+  @Test(expected = SSLException.class)
+  public void callingTestHttpServiceWhereTlsRequiredButNoCertGivenShouldFail() throws Throwable {
+    assertFalse(
+        TLS_FAILURE_MESSAGE,
+        callUsingStubsAndCheckSuccess(
+            createNettyClient(
+                createSpec("classpath:" + A_CA_CERTS_LOCATION, null, null, null),
+                "https",
+                portInfo.getHttpsMutualTlsRequiredPort())));
   }
 
-  @Override
-  protected boolean callWithNonExistentCerts() throws Throwable {
-    return callUsingStubsAndCheckSuccess(
-        createNettyClient(
-            createSpec("classpath:" + "DEFINITELY_NON_EXISTENT", null, null, null),
-            "https",
-            portInfo.getHttpsServerTlsOnlyPort()));
+  @Test(expected = IllegalStateException.class)
+  public void callingTestHttpServerWithNonExistentCertsShouldFail() throws Throwable {
+    assertFalse(
+        TLS_FAILURE_MESSAGE,
+        callUsingStubsAndCheckSuccess(
+            createNettyClient(
+                createSpec("classpath:" + "DEFINITELY_NON_EXISTENT", null, null, null),
+                "https",
+                portInfo.getHttpsServerTlsOnlyPort())));
   }
 
   private NettyClientWithResultStatusCodeFuture createNettyClient(NettyRequestReplySpec spec, String protocol, int port) {

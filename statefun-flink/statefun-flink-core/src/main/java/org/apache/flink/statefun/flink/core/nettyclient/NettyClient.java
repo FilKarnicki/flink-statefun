@@ -17,7 +17,6 @@
  */
 package org.apache.flink.statefun.flink.core.nettyclient;
 
-import nl.altindag.ssl.SSLFactory;
 import org.apache.flink.shaded.netty4.io.netty.bootstrap.Bootstrap;
 import org.apache.flink.shaded.netty4.io.netty.channel.Channel;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelDuplexHandler;
@@ -30,16 +29,19 @@ import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.ReadOnlyHttpHe
 import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslContext;
 import org.apache.flink.shaded.netty4.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.flink.shaded.netty4.io.netty.util.concurrent.ScheduledFuture;
-import org.apache.flink.statefun.flink.core.httpfn.DefaultHttpRequestReplyClientFactory;
+import org.apache.flink.statefun.flink.common.ResourceLocator;
 import org.apache.flink.statefun.flink.core.metrics.RemoteInvocationMetrics;
 import org.apache.flink.statefun.flink.core.reqreply.RequestReplyClient;
 import org.apache.flink.statefun.flink.core.reqreply.ToFunctionRequestSummary;
 import org.apache.flink.statefun.sdk.reqreply.generated.FromFunction;
 import org.apache.flink.statefun.sdk.reqreply.generated.ToFunction;
+import org.apache.flink.util.Preconditions;
 
-import javax.net.ssl.SSLException;
 import java.io.Closeable;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
+import java.net.URL;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -74,7 +76,7 @@ final class NettyClient implements RequestReplyClient, NettyClientService {
     bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
     bootstrap.remoteAddress(endpoint.serviceAddress());
     // setup tls
-    final SslContext sslContext = getSslContextIfRequiredOrNull(spec, endpoint);
+    final SslContext sslContext = endpoint.useTls() ? getSslContext(spec) : null;
     // setup a channel pool handler
     ChannelPoolHandler poolHandler =
         new HttpConnectionPoolManager(
@@ -222,36 +224,63 @@ final class NettyClient implements RequestReplyClient, NettyClientService {
     channel.close().addListener(ignored -> pool.release(channel));
   }
 
-  private static SslContext getSslContextIfRequiredOrNull(NettyRequestReplySpec spec, Endpoint endpoint) {
-    Optional<SSLFactory> maybeSslFactory = DefaultHttpRequestReplyClientFactory.buildSslFactory(
-        spec.getTrustedCaCertsOptional(),
-        spec.getClientCertsOptional(),
-        spec.getClientKeyOptional(),
-        spec.getClientKeyPasswordOptional());
+  private static SslContext getSslContext(NettyRequestReplySpec spec) {
+    Optional<String> maybeTrustCaCerts = spec.getTrustedCaCertsOptional();
+    Optional<String> maybeClientCerts = spec.getClientCertsOptional();
+    Optional<String> maybeClientKey = spec.getClientKeyOptional();
+    Optional<String> maybeKeyPassword = spec.getClientKeyPasswordOptional();
 
-    SslContext sslContext = null;
-    if (endpoint.useTls()) {
-      if (maybeSslFactory.isPresent()) {
-        sslContext = createSslContext(maybeSslFactory.get());
-      } else {
-        try {
-          sslContext = SslContextBuilder.forClient().build();
-        } catch (SSLException e) {
-          throw new IllegalStateException("Failed to initialize an SSL provider", e);
-        }
-      }
+    if (maybeClientCerts.isPresent() && !maybeClientKey.isPresent()) {
+      throw new IllegalStateException("You provided a client cert, but not a client key. Cannot continue.");
     }
-    return sslContext;
-  }
+    if (maybeClientKey.isPresent() && !maybeClientCerts.isPresent()) {
+      throw new IllegalStateException("You provided a client key, but not a client cert. Cannot continue.");
+    }
 
-  private static SslContext createSslContext(SSLFactory sslFactory) {
+    Optional<InputStream> maybeTrustCaCertsInputStream =
+        maybeTrustCaCerts.map(trustedCaCertsLocation -> openStreamIfExistsOrThrow(ResourceLocator.findNamedResource(trustedCaCertsLocation)));
+
+    Optional<InputStream> maybeCertInputStream =
+        maybeClientCerts.map(clientCertLocation -> openStreamIfExistsOrThrow(ResourceLocator.findNamedResource(clientCertLocation)));
+
+    Optional<InputStream> maybeKeyInputStream =
+        maybeClientKey.map(clientKeyLocation -> openStreamIfExistsOrThrow(ResourceLocator.findNamedResource(clientKeyLocation)));
+
     SslContextBuilder sslContextBuilder = SslContextBuilder.forClient();
-    sslFactory.getTrustManager().ifPresent(sslContextBuilder::trustManager);
-    sslFactory.getKeyManager().ifPresent(sslContextBuilder::keyManager);
+    maybeTrustCaCertsInputStream.ifPresent(sslContextBuilder::trustManager);
+    maybeCertInputStream.ifPresent(certInputStream -> maybeKeyInputStream.ifPresent(keyInputStream -> {
+      if (maybeKeyPassword.isPresent()) {
+        sslContextBuilder.keyManager(certInputStream, keyInputStream, maybeKeyPassword.get());
+      } else {
+        sslContextBuilder.keyManager(certInputStream, keyInputStream);
+      }
+    }));
+
     try {
       return sslContextBuilder.build();
-    } catch (SSLException e) {
-      throw new IllegalStateException("Could not create an ssl context", e);
+    } catch (IOException e) {
+      throw new IllegalStateException("Could not build the ssl context.", e);
+    } finally {
+      maybeTrustCaCertsInputStream.ifPresent(NettyClient::closeWithBestEffort);
+      maybeCertInputStream.ifPresent(NettyClient::closeWithBestEffort);
+      maybeKeyInputStream.ifPresent(NettyClient::closeWithBestEffort);
+    }
+  }
+
+  private static void closeWithBestEffort(InputStream inputStream) {
+    try {
+      inputStream.close();
+    } catch (IOException e) {
+      // ignore
+    }
+  }
+
+  private static InputStream openStreamIfExistsOrThrow(URL url) {
+    Preconditions.checkState(url != null, "The requested resource does not exist.");
+    try {
+      return url.openStream();
+    } catch (IOException e) {
+      throw new IllegalStateException("Could not open " + url.getPath(), e);
     }
   }
 }

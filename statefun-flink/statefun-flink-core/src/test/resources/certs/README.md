@@ -71,11 +71,11 @@ openssl req -x509 -new -nodes -key b_ca.key -sha256 -days 36500 -out b_ca.pem -p
 openssl req -x509 -new -nodes -key c_ca.key -sha256 -days 36500 -out c_ca.pem -passin pass:test
 ```
 
-## 3. create client and server keys and CSRs
+## 3. create PKCS8 client and server keys and CSRs
 
 ```shell
-openssl genrsa -des3 -passout pass:test -out a_client.key 2048
-openssl req -new -key a_client.key -out a_client.csr -passin pass:test
+openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -v1 PBE-SHA1-RC4-128 -out a_client.key.p8 -passout pass:test
+openssl req -new -key a_client.key.p8 -out a_client.key.p8.csr -passin pass:test
 ```
 
 again, all defaults were used, except for CommonName. Output:
@@ -93,7 +93,7 @@ again, all defaults were used, except for CommonName. Output:
     Locality Name (eg, city) []:
     Organization Name (eg, company) [Internet Widgits Pty Ltd]:
     Organizational Unit Name (eg, section) []:
-    Common Name (e.g. server FQDN or YOUR name) []:a_client.csr        
+    Common Name (e.g. server FQDN or YOUR name) []:        
     Email Address []:
     
     Please enter the following 'extra' attributes
@@ -105,18 +105,19 @@ again, all defaults were used, except for CommonName. Output:
 same for the other keys - the rest of clients and also servers
 
 ```shell
-openssl genrsa -des3 -passout pass:test -out a_server.key 2048
-openssl req -new -key a_server.key -out a_server.csr -passin pass:test
+openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -v1 PBE-SHA1-RC4-128 -out a_server.key.p8 -passout pass:test
+openssl req -new -key a_server.key.p8 -out a_server.key.p8.csr -passin pass:test
 ```
 
 ```shell
-openssl genrsa -des3 -passout pass:test -out b_client.key 2048
-openssl req -new -key b_client.key -out b_client.csr -passin pass:test
+openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -v1 PBE-SHA1-RC4-128 -out b_client.key.p8 -passout pass:test
+openssl req -new -key b_client.key.p8 -out b_client.key.p8.csr -passin pass:test
 ```
 
+(note no pass for c_client)
 ```shell
-openssl genrsa -passout pass:test -out c_client.key 2048
-openssl req -new -key c_client.key -out c_client.csr -passin pass:test
+openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -v1 PBE-SHA1-RC4-128 -out c_client.key.p8 -nocrypt
+openssl req -new -key c_client.key.p8 -out c_client.key.p8.csr 
 ```
 
 ## 4. create an extension config for servers
@@ -137,7 +138,7 @@ DNS.2 = remote-function-host
 ## 5. create certificates using our CSR, CA private keys, CA certificates and config files
 
 ```shell
-openssl x509 -req -in a_client.csr -passin pass:test -CA a_ca.pem -CAkey a_ca.key -CAcreateserial -out a_client.crt -days 36500 -sha256
+openssl x509 -req -in a_client.key.p8.csr -passin pass:test -CA a_ca.pem -CAkey a_ca.key -CAcreateserial -out a_client.crt -days 36500 -sha256
 ```
 
 output:
@@ -152,15 +153,15 @@ same for other clients and servers (note that clients `b` and `c` are signed ba 
 servers)
 
 ```shell
-openssl x509 -req -in b_client.csr -passin pass:test -CA b_ca.pem -CAkey b_ca.key -CAcreateserial -out b_client.crt -days 36500 -sha256
+openssl x509 -req -in b_client.key.p8.csr -passin pass:test -CA b_ca.pem -CAkey b_ca.key -CAcreateserial -out b_client.crt -days 36500 -sha256
 ```
 
 ```shell
-openssl x509 -req -in c_client.csr -passin pass:test -CA c_ca.pem -CAkey c_ca.key -CAcreateserial -out c_client.crt -days 36500 -sha256
+openssl x509 -req -in c_client.key.p8.csr -passin pass:test -CA c_ca.pem -CAkey c_ca.key -CAcreateserial -out c_client.crt -days 36500 -sha256
 ```
 
 ```shell
-openssl x509 -req -in a_server.csr -passin pass:test -CA a_ca.pem -CAkey a_ca.key -CAcreateserial -out a_server.crt -days 36500 -sha256 -extfile server.ext
+openssl x509 -req -in a_server.key.p8.csr -passin pass:test -CA a_ca.pem -CAkey a_ca.key -CAcreateserial -out a_server.crt -days 36500 -sha256 -extfile server.ext
 ```
 
 ## 6. create final files
