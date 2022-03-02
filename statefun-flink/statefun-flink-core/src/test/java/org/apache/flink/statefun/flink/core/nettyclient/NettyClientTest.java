@@ -65,32 +65,6 @@ public class NettyClientTest extends TransportClientTest {
   }
 
   @Test
-  public void callingTestHttpServiceUsingHttpsWithoutCaCertsShouldUseDefaultTruststore() throws Throwable {
-    assertTrue(
-        TLS_FAILURE_MESSAGE,
-        callUsingStubsAndCheckSuccess(
-            createNettyClient(
-                createHttpSpec(),
-                "https",
-                portInfo.getHttpsServerTlsOnlyPort())));
-  }
-
-  @Test
-  public void callingTestHttpServiceUsingHttpsWithOnlyClientSetupShouldUseDefaultTruststoreAndSucceed() throws Throwable {
-    assertTrue(
-        TLS_FAILURE_MESSAGE,
-        callUsingStubsAndCheckSuccess(
-            createNettyClient(
-                createSpec(
-                    null,
-                    "classpath:" + A_SIGNED_CLIENT_CERT_LOCATION,
-                    "classpath:" + A_SIGNED_CLIENT_KEY_LOCATION,
-                    A_SIGNED_CLIENT_KEY_PASSWORD),
-                "https",
-                portInfo.getHttpsMutualTlsRequiredPort())));
-  }
-
-  @Test
   public void callingTestHttpServiceWithTlsFromPathShouldSucceed() throws Throwable {
     URL caCertsUrl = getClass().getClassLoader().getResource(A_CA_CERTS_LOCATION);
     URL clientCertUrl = getClass().getClassLoader().getResource(A_SIGNED_CLIENT_CERT_LOCATION);
