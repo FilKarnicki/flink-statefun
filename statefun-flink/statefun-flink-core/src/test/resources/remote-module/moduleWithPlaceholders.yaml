@@ -17,6 +17,7 @@ kind: com.foo.bar/test.component.1
 spec:
   static: staticValue
   placeholder: ${key1}
+  valueDoesNotExist: ${iDoNotExist}
 ---
 kind: com.foo.bar/test.component.2
 spec:
@@ -25,6 +26,9 @@ spec:
   array:
     - a: ${key2}
     - a: fizz
+  another:
+    array2:
+      - b: b
 ---
 kind: com.foo.bar/test.component.3
 spec:

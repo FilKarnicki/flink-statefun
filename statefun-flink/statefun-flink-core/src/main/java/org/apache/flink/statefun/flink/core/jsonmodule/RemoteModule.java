@@ -103,16 +103,18 @@ public final class RemoteModule implements StatefulFunctionModule {
       ValueNode node,
       Integer nodePositionInParentArray,
       Map<String, String> config) {
-    Matcher m = replaceRegex.matcher(node.textValue());
-    if (m.matches() && config.containsKey(m.group(2))) {
-      if (parent.isObject()) {
-        ((ObjectNode) parent)
-            .put(nodeName, node.textValue().replace(m.group(1), config.get(m.group(2))));
-      } else if (parent.isArray()) {
-        ArrayNode anParent = ((ArrayNode) parent);
-        anParent.set(
-            nodePositionInParentArray,
-            new TextNode(node.textValue().replace(m.group(1), config.get(m.group(2)))));
+    if (node.textValue() != null) {
+      Matcher m = replaceRegex.matcher(node.textValue());
+      if (m.matches() && config.containsKey(m.group(2))) {
+        if (parent.isObject()) {
+          ((ObjectNode) parent)
+              .put(nodeName, node.textValue().replace(m.group(1), config.get(m.group(2))));
+        } else if (parent.isArray()) {
+          ArrayNode anParent = ((ArrayNode) parent);
+          anParent.set(
+              nodePositionInParentArray,
+              new TextNode(node.textValue().replace(m.group(1), config.get(m.group(2)))));
+        }
       }
     }
   }
