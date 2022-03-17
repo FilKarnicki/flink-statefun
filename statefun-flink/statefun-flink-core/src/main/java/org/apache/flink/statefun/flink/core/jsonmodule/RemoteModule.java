@@ -18,15 +18,7 @@
 
 package org.apache.flink.statefun.flink.core.jsonmodule;
 
-import static org.apache.flink.statefun.flink.core.spi.ExtensionResolverAccessor.getExtensionResolver;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
+import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ObjectNode;
@@ -36,6 +28,16 @@ import org.apache.flink.statefun.extensions.ComponentBinder;
 import org.apache.flink.statefun.extensions.ComponentJsonObject;
 import org.apache.flink.statefun.flink.core.spi.ExtensionResolver;
 import org.apache.flink.statefun.sdk.spi.StatefulFunctionModule;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import static org.apache.flink.statefun.flink.core.spi.ExtensionResolverAccessor.getExtensionResolver;
 
 public final class RemoteModule implements StatefulFunctionModule {
   private static final Pattern replaceRegex = Pattern.compile(".*(\\$\\{?([^}]+)}).*");
@@ -47,8 +49,15 @@ public final class RemoteModule implements StatefulFunctionModule {
 
   @Override
   public void configure(Map<String, String> globalConfiguration, Binder moduleBinder) {
+    Map<String, String> systemPropsThenEnvVarsThenGlobalConfig =
+        ParameterTool.fromSystemProperties()
+            .mergeWith(
+                ParameterTool.fromMap(System.getenv())
+                    .mergeWith(
+                        ParameterTool.fromMap(globalConfiguration)))
+            .toMap();
     parseComponentNodes(componentNodes)
-        .forEach(component -> bindComponent(component, moduleBinder, globalConfiguration));
+        .forEach(component -> bindComponent(component, moduleBinder, systemPropsThenEnvVarsThenGlobalConfig));
   }
 
   private static List<ComponentJsonObject> parseComponentNodes(
