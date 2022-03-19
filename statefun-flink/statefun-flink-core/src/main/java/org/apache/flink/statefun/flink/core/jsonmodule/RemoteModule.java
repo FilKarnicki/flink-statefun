@@ -124,19 +124,6 @@ public final class RemoteModule implements StatefulFunctionModule {
     }
   }
 
-  private static String resolvePlaceholder(Map<String, String> map, String s) {
-    StringBuffer sb = new StringBuffer();
-    Matcher m = replaceRegex.matcher(s);
-
-    while (m.find()) {
-      m.appendReplacement(sb, map.get(m.group(1)));
-    }
-
-    m.appendTail(sb);
-
-    return sb.toString();
-  }
-
   private static void resolveObject(ObjectNode node, Map<String, String> config) {
     node.fields()
         .forEachRemaining(
