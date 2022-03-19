@@ -101,6 +101,12 @@ public final class RemoteModuleTest {
                     assertThat(
                         component.specJsonNode().get("back").textValue(),
                         is(String.format("foo%s", TEST_CONFIG_VALUE_2)));
+                    assertThat(
+                        component.specJsonNode().get("two").textValue(),
+                        is(String.format("%s%s", TEST_CONFIG_VALUE_1, TEST_CONFIG_VALUE_2)));
+                    assertThat(
+                        component.specJsonNode().get("mixed").textValue(),
+                        is(String.format("a%sb%sc", TEST_CONFIG_VALUE_1, TEST_CONFIG_VALUE_2)));
                     ArrayNode arrayNode = (ArrayNode) component.specJsonNode().get("array");
                     assertThat(arrayNode.get(0).get("a").textValue(), is(TEST_CONFIG_VALUE_2));
                     assertThat(arrayNode.get(1).get("a").textValue(), is("fizz"));

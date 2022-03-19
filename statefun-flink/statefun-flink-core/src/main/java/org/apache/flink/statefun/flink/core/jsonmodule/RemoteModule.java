@@ -40,7 +40,7 @@ import java.util.stream.StreamSupport;
 import static org.apache.flink.statefun.flink.core.spi.ExtensionResolverAccessor.getExtensionResolver;
 
 public final class RemoteModule implements StatefulFunctionModule {
-  private static final Pattern replaceRegex = Pattern.compile(".*(\\$\\{?([^}]+)}).*");
+  private static final Pattern replaceRegex = Pattern.compile("\\$\\{(.*?)\\}");
   private final List<JsonNode> componentNodes;
 
   RemoteModule(List<JsonNode> componentNodes) {
@@ -53,11 +53,13 @@ public final class RemoteModule implements StatefulFunctionModule {
         ParameterTool.fromSystemProperties()
             .mergeWith(
                 ParameterTool.fromMap(System.getenv())
-                    .mergeWith(
-                        ParameterTool.fromMap(globalConfiguration)))
+                    .mergeWith(ParameterTool.fromMap(globalConfiguration)))
             .toMap();
+
     parseComponentNodes(componentNodes)
-        .forEach(component -> bindComponent(component, moduleBinder, systemPropsThenEnvVarsThenGlobalConfig));
+        .forEach(
+            component ->
+                bindComponent(component, moduleBinder, systemPropsThenEnvVarsThenGlobalConfig));
   }
 
   private static List<ComponentJsonObject> parseComponentNodes(
@@ -104,19 +106,35 @@ public final class RemoteModule implements StatefulFunctionModule {
       Integer nodePositionInParentArray,
       Map<String, String> config) {
     if (node.textValue() != null) {
+      StringBuffer stringBuffer = new StringBuffer();
       Matcher m = replaceRegex.matcher(node.textValue());
-      if (m.matches() && config.containsKey(m.group(2))) {
-        if (parent.isObject()) {
-          ((ObjectNode) parent)
-              .put(nodeName, node.textValue().replace(m.group(1), config.get(m.group(2))));
-        } else if (parent.isArray()) {
-          ArrayNode anParent = ((ArrayNode) parent);
-          anParent.set(
-              nodePositionInParentArray,
-              new TextNode(node.textValue().replace(m.group(1), config.get(m.group(2)))));
+      while (m.find()) {
+        if (config.containsKey(m.group(1))) {
+          m.appendReplacement(stringBuffer, config.get(m.group(1)));
         }
       }
+      m.appendTail(stringBuffer);
+
+      if (parent.isObject()) {
+        ((ObjectNode) parent).put(nodeName, stringBuffer.toString());
+      } else if (parent.isArray()) {
+        ArrayNode anParent = ((ArrayNode) parent);
+        anParent.set(nodePositionInParentArray, new TextNode(stringBuffer.toString()));
+      }
     }
+  }
+
+  private static String resolvePlaceholder(Map<String, String> map, String s) {
+    StringBuffer sb = new StringBuffer();
+    Matcher m = replaceRegex.matcher(s);
+
+    while (m.find()) {
+      m.appendReplacement(sb, map.get(m.group(1)));
+    }
+
+    m.appendTail(sb);
+
+    return sb.toString();
   }
 
   private static void resolveObject(ObjectNode node, Map<String, String> config) {

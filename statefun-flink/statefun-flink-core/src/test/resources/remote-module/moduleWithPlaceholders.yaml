@@ -23,12 +23,11 @@ kind: com.foo.bar/test.component.2
 spec:
   front: ${key1}bar
   back: foo${key2}
+  two: ${key1}${key2}
+  mixed: a${key1}b${key2}c
   array:
     - a: ${key2}
     - a: fizz
-  another:
-    array2:
-      - b: b
 ---
 kind: com.foo.bar/test.component.3
 spec:
