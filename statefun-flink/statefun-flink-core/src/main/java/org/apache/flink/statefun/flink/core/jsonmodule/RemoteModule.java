@@ -18,6 +18,15 @@
 
 package org.apache.flink.statefun.flink.core.jsonmodule;
 
+import static org.apache.flink.statefun.flink.core.spi.ExtensionResolverAccessor.getExtensionResolver;
+
+import java.util.*;
+import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
@@ -26,18 +35,12 @@ import org.apache.flink.statefun.extensions.ComponentBinder;
 import org.apache.flink.statefun.extensions.ComponentJsonObject;
 import org.apache.flink.statefun.flink.core.spi.ExtensionResolver;
 import org.apache.flink.statefun.sdk.spi.StatefulFunctionModule;
-
-import java.util.*;
-import java.util.function.Function;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
-
-import static org.apache.flink.statefun.flink.core.spi.ExtensionResolverAccessor.getExtensionResolver;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class RemoteModule implements StatefulFunctionModule {
-  private static final Pattern replaceRegex = Pattern.compile("\\$\\{(.*?)\\}");
+  private static final Logger LOG = LoggerFactory.getLogger(RemoteModule.class);
+  private static final Pattern PLACEHOLDER_REGEX = Pattern.compile("\\$\\{(.*?)\\}");
   private final List<JsonNode> componentNodes;
 
   RemoteModule(List<JsonNode> componentNodes) {
@@ -50,8 +53,7 @@ public final class RemoteModule implements StatefulFunctionModule {
         ParameterTool.fromSystemProperties()
             .mergeWith(
                 ParameterTool.fromMap(System.getenv())
-                    .mergeWith(
-                        ParameterTool.fromMap(globalConfiguration)))
+                    .mergeWith(ParameterTool.fromMap(globalConfiguration)))
             .toMap();
     parseComponentNodes(componentNodes)
         .forEach(
@@ -69,129 +71,89 @@ public final class RemoteModule implements StatefulFunctionModule {
 
   private static void bindComponent(
       ComponentJsonObject component, Binder moduleBinder, Map<String, String> configuration) {
-    if (component.specJsonNode().isObject()) {
-      resolveObject2((ObjectNode) component.specJsonNode(), configuration);
-    }
+    component.setSpecJsonNode(
+        valueResolutionFunction(configuration).apply(component.specJsonNode()));
+
     final ExtensionResolver extensionResolver = getExtensionResolver(moduleBinder);
     final ComponentBinder componentBinder =
         extensionResolver.resolveExtension(component.binderTypename(), ComponentBinder.class);
     componentBinder.bind(component, moduleBinder);
   }
 
-  //  private static void resolvePlaceholders(
-  //      JsonNode specJsonNode, Map<String, String> configuration) {
-  //    resolvePlaceholders(null, null, specJsonNode, null, configuration);
-  //  }
-
-//  private static void resolvePlaceholders(
-//      JsonNode parent,
-//      String nodeName,
-//      JsonNode node,
-//      Map<String, String> config) {
-//    if (node.isValueNode()) {
-//      ((ObjectNode) parent).put(nodeName, resolveValueNode2((ValueNode) node, config));
-//    } else if (node.isArray()) {
-//      resolveArray((ArrayNode) node, config);
-//    } else if (node.isObject()) {
-//      resolveObject((ObjectNode) node, config);
-//    }
-//  }
-
-  private static String resolveValueNode2(ValueNode node, Map<String, String> config) {
-    if (node.textValue() == null) {
-      return null;
-    }
+  private static ValueNode resolveValueNode(ValueNode node, Map<String, String> config) {
     StringBuffer stringBuffer = new StringBuffer();
-    Matcher m = replaceRegex.matcher(node.textValue());
-    while (m.find()) {
-      if (config.containsKey(m.group(1))) {
-        m.appendReplacement(stringBuffer, config.get(m.group(1)));
+    Matcher placeholderMatcher = PLACEHOLDER_REGEX.matcher(node.asText());
+    boolean placeholderReplaced = false;
+
+    while (placeholderMatcher.find()) {
+      if (config.containsKey(placeholderMatcher.group(1))) {
+        placeholderMatcher.appendReplacement(stringBuffer, config.get(placeholderMatcher.group(1)));
+        placeholderReplaced = true;
       }
     }
-    m.appendTail(stringBuffer);
+    placeholderMatcher.appendTail(stringBuffer);
 
-    return stringBuffer.toString();
+    return placeholderReplaced ? new TextNode(stringBuffer.toString()) : node;
   }
 
-  //  private static void resolveValueNode(
-  //      JsonNode parent,
-  //      String nodeName,
-  //      ValueNode node,
-  //      Integer nodePositionInParentArray,
-  //      Map<String, String> config) {
-  //    if (node.textValue() != null) {
-  //      StringBuffer stringBuffer = new StringBuffer();
-  //      Matcher m = replaceRegex.matcher(node.textValue());
-  //      while (m.find()) {
-  //        if (config.containsKey(m.group(1))) {
-  //          m.appendReplacement(stringBuffer, config.get(m.group(1)));
-  //        }
-  //      }
-  //      m.appendTail(stringBuffer);
-  //
-  //      if (parent.isObject()) {
-  //        ((ObjectNode) parent).put(nodeName, stringBuffer.toString());
-  //      } else if (parent.isArray()) {
-  //        ArrayNode anParent = ((ArrayNode) parent);
-  //        anParent.set(nodePositionInParentArray, new TextNode(stringBuffer.toString()));
-  //      }
-  //    }
-  //  }
-
-//  private static void resolveObject(ObjectNode node, Map<String, String> config) {
-//    node.fields()
-//        .forEachRemaining(
-//            kvp -> resolvePlaceholders(node, kvp.getKey(), kvp.getValue(), config));
-//  }
-
-  private static ObjectNode resolveObject2(ObjectNode node, Map<String, String> config) {
-    return StreamSupport.stream(Spliterators.spliteratorUnknownSize(node.fields(), 0), false)
-        .map(resolve(config))
-        .reduce(new ObjectNode(JsonNodeFactory.instance), (acc, tuple) -> {
-              acc.put(tuple.getKey(), tuple.getValue());
-              return acc;
+  private static ObjectNode resolveObject(ObjectNode node, Map<String, String> config) {
+    return getFieldStream(node)
+        .map(keyValueResolutionFunction(config))
+        .reduce(
+            new ObjectNode(JsonNodeFactory.instance),
+            (accumulatedObjectNode, resolvedFieldNameValueTuple) -> {
+              accumulatedObjectNode.put(
+                  resolvedFieldNameValueTuple.getKey(), resolvedFieldNameValueTuple.getValue());
+              return accumulatedObjectNode;
             },
             (objectNode1, objectNode2) -> {
-              throw new NotImplementedException("This reduce is not used with Parallel Streams");
-            }
-        );
+              throw new NotImplementedException("This reduce is not used with parallel streams");
+            });
   }
 
-  private static Function<Map.Entry<String, JsonNode>, AbstractMap.SimpleEntry<String, JsonNode>> resolve(Map<String, String> config) {
-    return kvp -> {
-      if (kvp.getValue().isObject()) {
-        return new AbstractMap.SimpleEntry<>(kvp.getKey(), resolveObject2((ObjectNode) kvp.getValue(), config));
-      } else if (kvp.getValue().isArray()) {
-        return new AbstractMap.SimpleEntry<>(kvp.getKey(), resolveArray2((ArrayNode) kvp.getValue(), config));
-      } else if (kvp.getValue().isValueNode()) {
-        return new AbstractMap.SimpleEntry<>(kvp.getKey(), new TextNode(resolveValueNode2((ValueNode) kvp.getValue(), config)));
+  private static ArrayNode resolveArray(ArrayNode node, Map<String, String> config) {
+    return getElementStream(node)
+        .map(valueResolutionFunction(config))
+        .reduce(
+            new ArrayNode(JsonNodeFactory.instance),
+            (accumulatedArrayNode, resolvedValue) -> {
+              accumulatedArrayNode.add(resolvedValue);
+              return accumulatedArrayNode;
+            },
+            (arrayNode1, arrayNode2) -> {
+              throw new NotImplementedException("This reduce is not used with parallel streams");
+            });
+  }
+
+  private static Function<Map.Entry<String, JsonNode>, AbstractMap.SimpleEntry<String, JsonNode>>
+      keyValueResolutionFunction(Map<String, String> config) {
+    return fieldNameValuePair ->
+        new AbstractMap.SimpleEntry<>(
+            fieldNameValuePair.getKey(),
+            valueResolutionFunction(config).apply(fieldNameValuePair.getValue()));
+  }
+
+  private static Function<JsonNode, JsonNode> valueResolutionFunction(Map<String, String> config) {
+    return value -> {
+      if (value.isObject()) {
+        return resolveObject((ObjectNode) value, config);
+      } else if (value.isArray()) {
+        return resolveArray((ArrayNode) value, config);
+      } else if (value.isValueNode()) {
+        return resolveValueNode((ValueNode) value, config);
       }
 
-      // todo log warning? has not been replaced
-      return new AbstractMap.SimpleEntry<>(kvp.getKey(), kvp.getValue());
+      LOG.warn(
+          "Unrecognised type (not in: object, array, value). Skipping ${placeholder} resolution for that node.");
+      return value;
     };
   }
 
-  private static ArrayNode resolveArray2(ArrayNode node, Map<String, String> config) {
-    return StreamSupport.stream(Spliterators.spliteratorUnknownSize(node.fields(), 0), false)
-        .map(resolve(config))
-        .reduce(new ArrayNode(JsonNodeFactory.instance), (acc, tuple) -> {
-              acc.add(tuple.getValue());
-              return acc;
-            },
-            (objectNode1, objectNode2) -> {
-              throw new NotImplementedException("This reduce is not used with Parallel Streams");
-            }
-        );
+  private static Stream<Map.Entry<String, JsonNode>> getFieldStream(ObjectNode node) {
+    return StreamSupport.stream(Spliterators.spliteratorUnknownSize(node.fields(), 0), false);
   }
-//  private static void resolveArray(ArrayNode node, Map<String, String> config) {
-//    for (int i = 0; i < node.size(); i++) {
-//      if (node.get(i).isValueNode()) {
-//        node.set(i, new TextNode(resolveValueNode2((ValueNode) node.get(i), config)));
-//      } else if (node.get(i).isObject()) {
-//        node.set(i, new TextNode(resolveObject((ValueNode) node.get(i), config);));
-//        ((ObjectNode) node).put(node.get(i), stringBuffer.toString());
-//      }
-//    }
-//  }
+
+  private static Stream<JsonNode> getElementStream(ArrayNode node) {
+    return StreamSupport.stream(Spliterators.spliteratorUnknownSize(node.elements(), 0), false);
+  }
 }

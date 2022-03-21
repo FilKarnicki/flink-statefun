@@ -111,23 +111,30 @@ public final class RemoteModuleTest {
                     ArrayNode arrayNode = (ArrayNode) component.specJsonNode().get("array");
                     assertThat(arrayNode.get(0).textValue(), is(TEST_CONFIG_VALUE_1));
                     assertThat(arrayNode.get(1).textValue(), is("bar"));
+                    assertThat(arrayNode.get(2).intValue(), is(1000));
+                    assertThat(arrayNode.get(3).booleanValue(), is(true));
 
-                    ArrayNode arrayNodeWithObjects = (ArrayNode) component.specJsonNode().get("arrayWithObjects");
-                    assertThat(arrayNodeWithObjects.get(0).get("a").textValue(), is(TEST_CONFIG_VALUE_2));
+                    ArrayNode arrayNodeWithObjects =
+                        (ArrayNode) component.specJsonNode().get("arrayWithObjects");
+                    assertThat(
+                        arrayNodeWithObjects.get(0).get("a").textValue(), is(TEST_CONFIG_VALUE_2));
                     assertThat(arrayNodeWithObjects.get(1).get("a").textValue(), is("fizz"));
 
-                    ArrayNode arrayWithNestedObjects = (ArrayNode) component.specJsonNode().get("arrayWithNestedObjects");
-                    assertThat(arrayWithNestedObjects.get(0).get("a").get("b").textValue(), is("foo"));
-                    assertThat(arrayWithNestedObjects.get(0).get("a").get("c").textValue(), is(TEST_CONFIG_VALUE_1));
+                    ArrayNode arrayWithNestedObjects =
+                        (ArrayNode) component.specJsonNode().get("arrayWithNestedObjects");
+                    assertThat(
+                        arrayWithNestedObjects.get(0).get("a").get("b").textValue(), is("foo"));
+                    assertThat(
+                        arrayWithNestedObjects.get(0).get("a").get("c").textValue(),
+                        is(TEST_CONFIG_VALUE_1));
                     counter.incrementAndGet();
                   });
           binder.bindExtension(
               TypeName.parseFrom("com.foo.bar/test.component.3"),
               (ComponentBinder)
                   (component, remoteModuleBinder) -> {
-                    assertThat(
-                        component.specJsonNode().get("frontAndBack").textValue(),
-                        is(String.format("fizz%sbuzz", TEST_CONFIG_VALUE_1)));
+                    assertThat(component.specJsonNode().get("anInt").intValue(), is(1));
+                    assertThat(component.specJsonNode().get("aBool").booleanValue(), is(true));
                     counter.incrementAndGet();
                   });
         },

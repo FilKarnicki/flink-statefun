@@ -52,6 +52,7 @@ public class SmokeVerificationJavaE2E {
             .withModuleGlobalConfiguration("TEST_SERVER_PROTOCOL", "https://")
             .withModuleGlobalConfiguration("TEST_REMOTE_FUNCTION_HOST", "remote-function-host")
             .withModuleGlobalConfiguration("TEST_NUM_BATCH_REQUESTS", "10000")
+            .withModuleGlobalConfiguration("TEST_REMOTE_FUNCTION_PORT", "8000")
             .dependsOn(remoteFunction);
 
     SmokeRunner.run(parameters, builder);

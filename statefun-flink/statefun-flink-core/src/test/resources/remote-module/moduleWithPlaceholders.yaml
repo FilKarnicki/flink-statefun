@@ -23,10 +23,13 @@ kind: com.foo.bar/test.component.2
 spec:
   front: ${key1}bar
   back: foo${key2}
+  two: ${key1}${key2}
+  mixed: a${key1}b${key2}c
   array:
     - ${key1}
     - bar
     - 1000
+    - true
   arrayWithObjects:
     - a: ${key2}
     - a: fizz
@@ -34,9 +37,9 @@ spec:
     - a:
         b: foo
         c: ${key1}
-
 ---
 kind: com.foo.bar/test.component.3
 spec:
-  frontAndBack: 1
+  anInt: 1
+  aBool: true
 ---
