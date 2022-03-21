@@ -50,9 +50,9 @@ public final class RemoteModule implements StatefulFunctionModule {
         ParameterTool.fromSystemProperties()
             .mergeWith(
                 ParameterTool.fromMap(System.getenv())
-                    .mergeWith(ParameterTool.fromMap(globalConfiguration)))
+                    .mergeWith(
+                        ParameterTool.fromMap(globalConfiguration)))
             .toMap();
-
     parseComponentNodes(componentNodes)
         .forEach(
             component ->
