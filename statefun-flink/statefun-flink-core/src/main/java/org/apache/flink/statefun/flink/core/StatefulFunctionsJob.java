@@ -40,10 +40,7 @@ public class StatefulFunctionsJob {
     Configuration flinkConfig = FlinkConfigExtractor.reflectivelyExtractFromEnv(env);
 
     StatefulFunctionsConfig stateFunConfig =
-        StatefulFunctionsConfig.fromFlinkConfiguration(
-            ParameterTool.fromMap(flinkConfig.toMap())
-                .mergeWith(argsParameterTool)
-                .getConfiguration());
+        StatefulFunctionsConfig.fromFlinkConfiguration(flinkConfig, args);
 
     stateFunConfig.addAllGlobalConfigurations(argsParameterTool.toMap());
     stateFunConfig.setProvider(new StatefulFunctionsUniverses.ClassPathUniverseProvider());

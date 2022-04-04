@@ -34,7 +34,10 @@ import org.apache.flink.statefun.flink.core.StatefulFunctionsUniverse;
 import org.apache.flink.statefun.flink.core.message.MessageFactoryKey;
 import org.apache.flink.statefun.flink.core.message.MessageFactoryType;
 import org.apache.flink.statefun.sdk.*;
-import org.apache.flink.statefun.sdk.io.*;
+import org.apache.flink.statefun.sdk.io.EgressIdentifier;
+import org.apache.flink.statefun.sdk.io.EgressSpec;
+import org.apache.flink.statefun.sdk.io.IngressIdentifier;
+import org.apache.flink.statefun.sdk.io.IngressSpec;
 import org.apache.flink.statefun.sdk.spi.StatefulFunctionModule;
 import org.junit.Test;
 
@@ -61,7 +64,8 @@ public final class RemoteModuleTest {
     StatefulFunctionModule module = fromPath(modulePath);
 
     StatefulFunctionsUniverse universe = emptyUniverse();
-    setupUniverse(universe, module, new TestComponentBindersModule(), new HashMap<>());
+    setupUniverse(
+        universe, module, new TestComponentBindersModule(), new HashMap<>(), new String[0]);
 
     assertThat(universe.functions(), hasKey(TestComponentBinder1.TEST_FUNCTION_TYPE));
     assertThat(universe.ingress(), hasKey(TestComponentBinder2.TEST_INGRESS.id()));
@@ -73,7 +77,8 @@ public final class RemoteModuleTest {
     final AtomicInteger counter = new AtomicInteger();
     final Map<String, String> configuration = new HashMap<>();
     configuration.put(TEST_CONFIG_KEY_1, TEST_CONFIG_VALUE_1);
-    configuration.put(TEST_CONFIG_KEY_2, TEST_CONFIG_VALUE_2);
+    configuration.put(TEST_CONFIG_KEY_2, "I_WILL_BE_REPLACED_BY_ARGS_CONFIG");
+    final String[] argsConfiguration = new String[] {"--" + TEST_CONFIG_KEY_2, TEST_CONFIG_VALUE_2};
 
     final StatefulFunctionModule module = fromPath(moduleWithPlaceholdersPath);
 
@@ -140,7 +145,8 @@ public final class RemoteModuleTest {
                     counter.incrementAndGet();
                   });
         },
-        configuration);
+        configuration,
+        argsConfiguration);
 
     assertThat(counter.get(), is(3)); // ensure all assertions were run
   }
@@ -157,7 +163,8 @@ public final class RemoteModuleTest {
             binder.bindExtension(
                 TypeName.parseFrom("com.foo.bar/test.component.1"),
                 (ComponentBinder) (component, remoteModuleBinder) -> {}),
-        new HashMap<>());
+        new HashMap<>(),
+        new String[0]);
   }
 
   private static StatefulFunctionModule fromPath(String path) {
@@ -176,10 +183,11 @@ public final class RemoteModuleTest {
       StatefulFunctionsUniverse universe,
       StatefulFunctionModule functionModule,
       ExtensionModule extensionModule,
-      Map<String, String> globalConfig) {
+      Map<String, String> globalConfig,
+      String[] argsConfig) {
 
     extensionModule.configure(globalConfig, universe);
-    functionModule.configure(globalConfig, universe);
+    functionModule.configure(globalConfig, argsConfig, universe);
   }
 
   private static class TestComponentBindersModule implements ExtensionModule {

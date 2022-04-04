@@ -17,9 +17,8 @@
  */
 package org.apache.flink.statefun.flink.harness;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
+
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.runtime.jobgraph.SavepointConfigOptions;
@@ -42,11 +41,13 @@ import org.apache.flink.statefun.sdk.io.IngressSpec;
 import org.apache.flink.streaming.api.environment.ExecutionCheckpointingOptions;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
+import org.checkerframework.checker.units.qual.A;
 
 public class Harness {
   private final Configuration flinkConfig;
 
   private final Map<String, String> globalConfigurations = new HashMap<>();
+  private final ArrayList<String> argList = new ArrayList<>();
 
   private final Map<IngressIdentifier<?>, IngressSpec<?>> overrideIngress = new HashMap<>();
   private final Map<EgressIdentifier<?>, EgressSpec<?>> overrideEgress = new HashMap<>();
@@ -118,6 +119,15 @@ public class Harness {
     return this;
   }
 
+  /**
+   * Sets args available in the {@link
+   * org.apache.flink.statefun.sdk.spi.StatefulFunctionModule} on configure.
+   */
+  public Harness withArgs(String... args) {
+    this.argList.addAll(Arrays.asList(args));
+    return this;
+  }
+
   /** Sets the path to the savepoint location to restore from, when this harness starts. */
   public Harness withSavepointLocation(String savepointLocation) {
     Objects.requireNonNull(savepointLocation);
@@ -136,8 +146,9 @@ public class Harness {
     env.configure(flinkConfig, Thread.currentThread().getContextClassLoader());
 
     StatefulFunctionsConfig stateFunConfig =
-        StatefulFunctionsConfig.fromFlinkConfiguration(flinkConfig);
+        StatefulFunctionsConfig.fromFlinkConfiguration(flinkConfig, new String[0]);
     stateFunConfig.addAllGlobalConfigurations(globalConfigurations);
+    stateFunConfig.addAllArgs(argList.toArray(new String[argList.size()]));
     stateFunConfig.setProvider(new HarnessProvider(overrideIngress, overrideEgress));
     StatefulFunctionsJob.main(env, stateFunConfig);
   }

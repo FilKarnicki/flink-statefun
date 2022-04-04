@@ -79,7 +79,8 @@ public final class LegacyRemoteModuleV30 implements StatefulFunctionModule {
   }
 
   @Override
-  public void configure(Map<String, String> globalConfiguration, Binder moduleBinder) {
+  public void configure(
+      Map<String, String> globalConfiguration, String[] args, Binder moduleBinder) {
     components(moduleSpecNode).forEach(component -> bindComponent(component, moduleBinder));
   }
 

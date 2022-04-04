@@ -68,9 +68,10 @@ public interface StatefulFunctionModule {
    * ingresses, egresses, routers, and functions.
    *
    * @param globalConfiguration global configuration of the Stateful Functions application.
+   * @param args map containing main method args
    * @param binder the binder to be used to bind ingresses, egresses, routers, and functions.
    */
-  void configure(Map<String, String> globalConfiguration, Binder binder);
+  void configure(Map<String, String> globalConfiguration, String[] args, Binder binder);
 
   /**
    * A {@link Binder} binds ingresses, egresses, routers, and functions to a Stateful Functions

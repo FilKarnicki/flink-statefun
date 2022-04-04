@@ -86,7 +86,7 @@ public final class Modules {
     }
     for (StatefulFunctionModule module : statefulFunctionModules) {
       try (SetContextClassLoader ignored = new SetContextClassLoader(module)) {
-        module.configure(globalConfiguration, universe);
+        module.configure(globalConfiguration, configuration.getArgsConfiguration(), universe);
       }
     }
 

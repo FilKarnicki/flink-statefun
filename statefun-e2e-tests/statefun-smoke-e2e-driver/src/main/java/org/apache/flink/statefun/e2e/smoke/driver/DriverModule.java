@@ -41,7 +41,7 @@ public class DriverModule implements StatefulFunctionModule {
   public static final Logger LOG = LoggerFactory.getLogger(DriverModule.class);
 
   @Override
-  public void configure(Map<String, String> globalConfiguration, Binder binder) {
+  public void configure(Map<String, String> globalConfiguration, String[] ąrgs, Binder binder) {
     SmokeRunnerParameters parameters = SmokeRunnerParameters.from(globalConfiguration);
     LOG.info(parameters.toString());
 

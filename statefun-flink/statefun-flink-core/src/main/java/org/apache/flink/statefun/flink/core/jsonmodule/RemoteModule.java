@@ -48,17 +48,23 @@ public final class RemoteModule implements StatefulFunctionModule {
   }
 
   @Override
-  public void configure(Map<String, String> globalConfiguration, Binder moduleBinder) {
-    Map<String, String> systemPropsThenEnvVarsThenGlobalConfig =
+  public void configure(
+      Map<String, String> globalConfiguration, String[] args, Binder moduleBinder) {
+    System.out.printf("FIL! %s%n", Arrays.toString(args));
+    Map<String, String> systemPropsThenGlobalConfigThenEnvVarsThenArgs =
         ParameterTool.fromSystemProperties()
             .mergeWith(
-                ParameterTool.fromMap(System.getenv())
-                    .mergeWith(ParameterTool.fromMap(globalConfiguration)))
+                ParameterTool.fromMap(globalConfiguration)
+                    .mergeWith(
+                        ParameterTool.fromMap(System.getenv())
+                            .mergeWith(ParameterTool.fromArgs(args))))
             .toMap();
+    System.out.printf("FIL! %s%n", systemPropsThenGlobalConfigThenEnvVarsThenArgs);
     parseComponentNodes(componentNodes)
         .forEach(
             component ->
-                bindComponent(component, moduleBinder, systemPropsThenEnvVarsThenGlobalConfig));
+                bindComponent(
+                    component, moduleBinder, systemPropsThenGlobalConfigThenEnvVarsThenArgs));
   }
 
   private static List<ComponentJsonObject> parseComponentNodes(
@@ -73,6 +79,7 @@ public final class RemoteModule implements StatefulFunctionModule {
       ComponentJsonObject component, Binder moduleBinder, Map<String, String> configuration) {
 
     JsonNode resolvedSpec = valueResolutionFunction(configuration).apply(component.specJsonNode());
+    System.out.printf("FIL! resolevd json %s%n", resolvedSpec);
     ComponentJsonObject resolvedComponent = new ComponentJsonObject(component.get(), resolvedSpec);
 
     final ExtensionResolver extensionResolver = getExtensionResolver(moduleBinder);

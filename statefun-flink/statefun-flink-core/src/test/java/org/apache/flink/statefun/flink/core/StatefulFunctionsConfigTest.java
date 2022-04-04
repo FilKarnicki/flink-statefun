@@ -54,7 +54,8 @@ public class StatefulFunctionsConfigTest {
     configuration.setString("statefun.module.global-config.key2", "value2");
 
     StatefulFunctionsConfig stateFunConfig =
-        StatefulFunctionsConfig.fromFlinkConfiguration(configuration);
+        StatefulFunctionsConfig.fromFlinkConfiguration(
+            configuration, new String[] {"--" + StatefulFunctionsConfig.EMBEDDED.key(), "true"});
 
     Assert.assertEquals(stateFunConfig.getFlinkJobName(), testName);
     Assert.assertEquals(
@@ -68,6 +69,10 @@ public class StatefulFunctionsConfigTest {
         stateFunConfig.getGlobalConfigurations(), Matchers.hasEntry("key1", "value1"));
     Assert.assertThat(
         stateFunConfig.getGlobalConfigurations(), Matchers.hasEntry("key2", "value2"));
+    Assert.assertThat(
+        stateFunConfig.getArgsConfiguration(),
+        Matchers.hasItemInArray("--" + StatefulFunctionsConfig.EMBEDDED.key()));
+    Assert.assertThat(stateFunConfig.getArgsConfiguration(), Matchers.hasItemInArray("true"));
   }
 
   private static Configuration baseConfiguration() {

@@ -25,6 +25,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.Configuration;
@@ -120,11 +123,12 @@ public class StatefulFunctionsConfig implements Serializable {
    */
   public static StatefulFunctionsConfig fromEnvironment(StreamExecutionEnvironment env) {
     Configuration configuration = FlinkConfigExtractor.reflectivelyExtractFromEnv(env);
-    return new StatefulFunctionsConfig(configuration);
+    return new StatefulFunctionsConfig(configuration, new String[0]);
   }
 
-  public static StatefulFunctionsConfig fromFlinkConfiguration(Configuration flinkConfiguration) {
-    return new StatefulFunctionsConfig(flinkConfiguration);
+  public static StatefulFunctionsConfig fromFlinkConfiguration(
+      Configuration flinkConfiguration, String[] args) {
+    return new StatefulFunctionsConfig(flinkConfiguration, args);
   }
 
   private MessageFactoryType factoryType;
@@ -144,13 +148,20 @@ public class StatefulFunctionsConfig implements Serializable {
   private boolean embedded;
 
   private final Map<String, String> globalConfigurations = new HashMap<>();
+  private String[] argsConfiguration;
 
   /**
    * Create a new configuration object based on the values set in flink-conf.
    *
-   * @param configuration a configuration to read the values from
+   * @param envOnlyConfiguration a configuration to read the values from
+   * @param args a parameter tool created from main method args
    */
-  private StatefulFunctionsConfig(Configuration configuration) {
+  private StatefulFunctionsConfig(Configuration envOnlyConfiguration, String[] args) {
+    Configuration configuration =
+        ParameterTool.fromMap(envOnlyConfiguration.toMap())
+            .mergeWith(ParameterTool.fromArgs(args))
+            .getConfiguration();
+    this.argsConfiguration = args;
     this.factoryType = configuration.get(USER_MESSAGE_SERIALIZER);
     this.customPayloadSerializerClassName =
         configuration.get(USER_MESSAGE_CUSTOM_PAYLOAD_SERIALIZER_CLASS);
@@ -282,7 +293,7 @@ public class StatefulFunctionsConfig implements Serializable {
 
   /**
    * Returns the global configurations passed to {@link
-   * org.apache.flink.statefun.sdk.spi.StatefulFunctionModule#configure(Map,
+   * org.apache.flink.statefun.sdk.spi.StatefulFunctionModule#configure(Map, Map,
    * StatefulFunctionModule.Binder)}.
    */
   public Map<String, String> getGlobalConfigurations() {
@@ -302,5 +313,14 @@ public class StatefulFunctionsConfig implements Serializable {
    */
   public void setGlobalConfiguration(String key, String value) {
     this.globalConfigurations.put(key, value);
+  }
+
+  /** Returns the configuration passed into the main method */
+  public String[] getArgsConfiguration() {
+    return argsConfiguration;
+  }
+
+  public void addAllArgs(String[] args) {
+    this.argsConfiguration = ArrayUtils.addAll(this.argsConfiguration, args);
   }
 }
